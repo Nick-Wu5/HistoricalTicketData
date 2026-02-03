@@ -155,12 +155,14 @@ function makeRequest(endpoint, queryParams = {}) {
 }
 
 // ============================================
-// Test Examples
+// Fetch listings for a specific event
 // ============================================
-async function runTests() {
+async function fetchListings() {
   console.log("===========================================");
-  console.log("Ticket Evolution API Test");
+  console.log("Ticket Evolution Listings Test");
   console.log("===========================================\n");
+
+  const eventId = "2795400";
 
   // Check if credentials are set
   if (!API_TOKEN || !API_SECRET) {
@@ -169,49 +171,24 @@ async function runTests() {
   }
 
   try {
-    // Test 1: Simple request with no parameters
-    console.log("TEST 1: Get categories (no parameters)");
-    console.log("---------------------------------------");
-    const categories = await makeRequest("/categories");
-    console.log(
-      "✓ Success! Received",
-      categories.categories?.length || 0,
-      "categories"
-    );
-    console.log("Sample category:", categories.categories?.[0]?.name);
-    console.log("\n");
-
-    // Test 2: Request with query parameters (sorted alphabetically)
-    console.log("TEST 2: Get brokerages with pagination");
-    console.log("---------------------------------------");
-    const brokerages = await makeRequest("/brokerages", {
-      per_page: 1,
-      page: 1,
+    console.log(`Fetching listings for event ${eventId}...`);
+    const response = await makeRequest("/listings", {
+      event_id: eventId,
+      type: "event",
     });
-    console.log(
-      "✓ Success! Received",
-      brokerages.brokerages?.length || 0,
-      "brokerages"
-    );
-    console.log("Sample brokerage:", brokerages.brokerages?.[0]?.name);
-    console.log("\n");
+    const listings = response.ticket_groups || response.listings || [];
 
-    // Test 3: Get a specific event (you can replace with a real event ID)
-    console.log("TEST 3: Search events");
-    console.log("---------------------------------------");
-    const events = await makeRequest("/events", {
-      per_page: 5,
+    console.log(`\n✓ Success! Received ${listings.length} listings.\n`);
+
+    listings.forEach((listing, index) => {
+      const price = listing.retail_price;
+      const availableQuantity = listing.available_quantity;
+      console.log(
+        `${
+          index + 1
+        }. Retail Price: ${price} | Available Qty: ${availableQuantity}`
+      );
     });
-    console.log("✓ Success! Received", events.events?.length || 0, "events");
-    if (events.events?.[0]) {
-      console.log("Sample event:", events.events[0].name);
-      console.log("Event ID:", events.events[0].id);
-    }
-    console.log("\n");
-
-    console.log("===========================================");
-    console.log("All tests passed! ✓");
-    console.log("===========================================");
   } catch (error) {
     console.error("\n❌ Test failed:", error.message);
     console.error("\nTroubleshooting:");
@@ -224,5 +201,5 @@ async function runTests() {
   }
 }
 
-// Run the tests
-runTests();
+// Run the test
+fetchListings();

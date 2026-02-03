@@ -61,7 +61,7 @@ async function fetchWithRetry<T>(
  */
 type EventRecord = {
   id: string | number;
-  te_event_id: string;
+  te_event_id: number;
   title: string;
 };
 
@@ -84,12 +84,24 @@ async function processEvent(
     // Fetch listings with retry logic (Using correct /listings endpoint)
     // Note: This endpoint does not support pagination and returns all listings
     const response = await fetchWithRetry(
-      () => teClient.get(`/listings`, { event_id: event.te_event_id }),
+      () =>
+        teClient.get(`/listings`, {
+          event_id: String(event.te_event_id),
+          type: "event",
+        }),
       event.title,
     );
 
     // API returns 'ticket_groups' key (verified in debug)
     const listings = response.ticket_groups || response.listings || [];
+    const nonEventCount = listings.filter(
+      (listing: { type?: string }) => listing.type && listing.type !== "event",
+    ).length;
+    if (nonEventCount > 0) {
+      console.log(
+        `[${event.title}] Excluded ${nonEventCount} non-event listings`,
+      );
+    }
     const aggregates = aggregatePrices(listings);
 
     if (aggregates) {
@@ -219,7 +231,7 @@ Deno.serve(async (_req) => {
         },
       ) => ({
         id: event.id,
-        te_event_id: String(event.te_event_id),
+        te_event_id: Number(event.te_event_id),
         title: event.title,
       }),
     );

@@ -124,6 +124,7 @@ async function testPollerLogic() {
     // Correct Endpoint: /listings?event_id=...
     const response = await makeRequest("/listings", {
       event_id: TEST_EVENT_ID,
+      type: "event",
     });
 
     // Handle response keys (ticket_groups or listings)
@@ -134,24 +135,53 @@ async function testPollerLogic() {
     if (listings.length > 0) {
       const l = listings[0];
       console.log(
-        `   Sample: Price $${l.price || l.retail_price}, Qty: ${
-          l.quantity || l.available_quantity
-        }, Section: ${l.section}`
+        `   Sample: Retail $${l.retail_price}, Available Qty: ${l.available_quantity}, Section: ${l.section}`
       );
 
-      // Calculate Aggregates (Simulate utils.aggregatePrices)
-      const prices = listings
-        .map((l) => parseFloat(l.price || l.retail_price))
-        .filter((p) => !isNaN(p));
+      // Calculate Aggregates (Mirror utils.aggregatePrices)
+      const ticketListings = listings.filter((l) => {
+        if (l.type !== "event") {
+          return false;
+        }
+
+        const rawPrice = l.retail_price;
+        const price =
+          typeof rawPrice === "string" ? parseFloat(rawPrice) : rawPrice;
+        if (typeof price !== "number" || isNaN(price) || price <= 0) {
+          return false;
+        }
+        const hasValidPrice = price > 0 && price < 100000;
+
+        const availableQuantity = l.available_quantity;
+        const hasValidQuantity =
+          typeof availableQuantity === "number" &&
+          availableQuantity >= 2 &&
+          availableQuantity < 10000;
+
+        return hasValidPrice && hasValidQuantity;
+      });
+
+      if (ticketListings.length === 0) {
+        console.log("\n⚠️  No valid ticket listings after filtering.");
+        return;
+      }
+
+      const prices = ticketListings
+        .map((l) => {
+          const val = l.retail_price;
+          return typeof val === "string" ? parseFloat(val) : val;
+        })
+        .filter((p) => typeof p === "number" && !isNaN(p) && p > 0);
+
       const min = Math.min(...prices);
       const max = Math.max(...prices);
       const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
 
-      console.log(`\n📊 Aggregates:`);
+      console.log(`\n📊 Poller Aggregates:`);
       console.log(`   Min: $${min.toFixed(2)}`);
       console.log(`   Avg: $${avg.toFixed(2)}`);
       console.log(`   Max: $${max.toFixed(2)}`);
-      console.log(`   Count: ${listings.length}`);
+      console.log(`   Count: ${ticketListings.length}`);
     } else {
       console.log("⚠️  No listings array found in response (or empty).");
     }
