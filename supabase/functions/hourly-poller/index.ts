@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { TicketEvolutionClient } from "../_shared/te-api.ts";
-import { aggregatePrices } from "../_shared/utils.ts";
+import { TicketEvolutionClient } from "@shared/te-api.ts";
+import { aggregatePrices } from "@shared/utils.ts";
 
 // Configuration
 const BATCH_SIZE = 5; // Process 5 events concurrently (reduced from 10)
@@ -27,18 +27,19 @@ async function fetchWithRetry<T>(
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
-    } catch (error: any) {
-      lastError = error;
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      lastError = err;
 
       // Check if error is retryable
-      const isRetryable = error.message?.includes("429") || // Rate limit
-        error.message?.includes("500") || // Server error
-        error.message?.includes("502") || // Bad gateway
-        error.message?.includes("503") || // Service unavailable
-        error.message?.includes("timeout");
+      const isRetryable = err.message?.includes("429") || // Rate limit
+        err.message?.includes("500") || // Server error
+        err.message?.includes("502") || // Bad gateway
+        err.message?.includes("503") || // Service unavailable
+        err.message?.includes("timeout");
 
       if (!isRetryable || attempt === maxRetries - 1) {
-        throw error;
+        throw err;
       }
 
       // Exponential backoff: 1s, 2s, 4s
@@ -58,10 +59,24 @@ async function fetchWithRetry<T>(
 /**
  * Process a single event
  */
+type EventRecord = {
+  id: string | number;
+  te_event_id: string;
+  title: string;
+};
+
+type InsertResult = PromiseLike<{ error: { message: string } | null }>;
+
+type SupabaseClientLike = {
+  from: (table: string) => {
+    insert: (values: Record<string, unknown>) => InsertResult;
+  };
+};
+
 async function processEvent(
-  event: any,
+  event: EventRecord,
   teClient: TicketEvolutionClient,
-  supabase: any,
+  supabase: SupabaseClientLike,
 ): Promise<PollResult> {
   const startTime = Date.now();
 
@@ -109,12 +124,13 @@ async function processEvent(
         duration_ms: Date.now() - startTime,
       };
     }
-  } catch (err: any) {
-    console.error(`[${event.title}] Error:`, err.message);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error(`[${event.title}] Error:`, error.message);
     return {
       event: event.title,
       status: "error",
-      error: err.message,
+      error: error.message,
       duration_ms: Date.now() - startTime,
     };
   }
@@ -124,9 +140,9 @@ async function processEvent(
  * Process events in batches with controlled concurrency
  */
 async function processBatch(
-  events: any[],
+  events: EventRecord[],
   teClient: TicketEvolutionClient,
-  supabase: any,
+  supabase: SupabaseClientLike,
 ): Promise<PollResult[]> {
   const results: PollResult[] = [];
 
@@ -170,7 +186,7 @@ async function processBatch(
 /**
  * Main Edge Function handler
  */
-Deno.serve(async (req) => {
+Deno.serve(async (_req) => {
   const startTime = Date.now();
 
   try {
@@ -185,7 +201,7 @@ Deno.serve(async (req) => {
     const teClient = new TicketEvolutionClient(teToken, teSecret);
 
     // Fetch events to poll
-    const { data: events, error: fetchError } = await supabase
+    const { data: eventsData, error: fetchError } = await supabase
       .from("events")
       .select("id, te_event_id, title")
       .order("title");
@@ -194,7 +210,21 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to fetch events: ${fetchError.message}`);
     }
 
-    if (!events || events.length === 0) {
+    const events = (eventsData ?? []).map(
+      (
+        event: {
+          id: string | number;
+          te_event_id: string | number;
+          title: string;
+        },
+      ) => ({
+        id: event.id,
+        te_event_id: String(event.te_event_id),
+        title: event.title,
+      }),
+    );
+
+    if (events.length === 0) {
       return new Response(
         JSON.stringify({ message: "No events to poll" }),
         { headers: { "Content-Type": "application/json" } },
@@ -238,16 +268,17 @@ Deno.serve(async (req) => {
         headers: { "Content-Type": "application/json" },
       },
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error(JSON.stringify({
       type: "poll_error",
       timestamp: new Date().toISOString(),
-      error: error.message,
-      stack: error.stack,
+      error: err.message,
+      stack: err.stack,
     }));
 
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: err.message }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },

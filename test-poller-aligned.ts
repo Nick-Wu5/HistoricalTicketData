@@ -40,9 +40,15 @@ const listings = response.ticket_groups || response.listings || [];
 console.log(`✅ Listings returned: ${listings.length}`);
 
 const rawPrices: number[] = listings
-  .map((l: any) => l.retail_price || l.price)
-  .map((p: any) => (typeof p === "string" ? parseFloat(p) : p))
-  .filter((p: any): p is number => typeof p === "number" && !isNaN(p) && p > 0);
+  .map((l: { retail_price?: number | string; price?: number | string }) =>
+    l.retail_price ?? l.price
+  )
+  .map((p: number | string | undefined) =>
+    typeof p === "string" ? parseFloat(p) : p
+  )
+  .filter((p: number | undefined): p is number =>
+    typeof p === "number" && !isNaN(p) && p > 0
+  );
 
 if (rawPrices.length > 0) {
   const rawMin = Math.min(...rawPrices);
