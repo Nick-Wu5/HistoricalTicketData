@@ -2,11 +2,14 @@ import { crypto } from "jsr:@std/crypto@1.0.5";
 import { encodeBase64 } from "jsr:@std/encoding@1.0.10/base64";
 
 /**
- * Ticket Evolution API Client for Deno
+ * Ticket Evolution API client for Deno.
+ * Uses HMAC-SHA256 signed requests (X-Token, X-Signature).
+ * Base URL: sandbox by default; switch for production.
  */
 export class TicketEvolutionClient {
   private apiToken: string;
   private apiSecret: string;
+  /** Sandbox: api.sandbox.ticketevolution.com; Production: api.ticketevolution.com */
   private baseUrl = "https://api.sandbox.ticketevolution.com/v9";
 
   constructor(token: string, secret: string) {
@@ -15,90 +18,85 @@ export class TicketEvolutionClient {
   }
 
   /**
-   * Generates HMAC-SHA256 signature for the request
+   * Build HMAC-SHA256 signature for the request.
+   * TE expects: METHOD hostname path?query (params sorted alphabetically).
    */
   private async generateSignature(
     method: string,
     path: string,
     params: Record<string, string> = {},
   ): Promise<string> {
-    // Sort parameters alphabetically by key
     const sortedKeys = Object.keys(params).sort();
     const sortedParams: Record<string, string> = {};
-    sortedKeys.forEach((key) => {
-      sortedParams[key] = params[key];
-    });
+    for (const key of sortedKeys) sortedParams[key] = params[key];
 
-    // Valid query string must ALWAYS start with ?
-    const queryString = Object.keys(sortedParams).length > 0
-      ? "?" + new URLSearchParams(sortedParams).toString().replace(/\+/g, "%20")
-      : "?";
+    const queryString =
+      sortedKeys.length > 0
+        ? "?" +
+          new URLSearchParams(sortedParams).toString().replace(/\+/g, "%20")
+        : "?";
 
-    // Construct the full string to sign
-    // Format: METHOD hostname path?query
-    // parse the baseUrl to get hostname
-    const url = new URL(this.baseUrl);
-    const hostname = url.hostname; // api.sandbox.ticketevolution.com
+    const baseUrlObj = new URL(this.baseUrl);
+    const hostname = baseUrlObj.hostname;
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const stringToSign = `${method} ${hostname}${normalizedPath}${queryString}`;
 
-    // path here is typically "/v9/events" (passed from get())
-    // ensure it starts with /
-    const cleanPath = path.startsWith("/") ? path : "/" + path;
-
-    const message = `${method} ${hostname}${cleanPath}${queryString}`;
-    console.log(`TE API Signing: ${message}`); // Log for debugging in edge function logs
+    console.log(`TE API Signing: ${stringToSign}`);
 
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(this.apiSecret);
-    const messageData = encoder.encode(message);
+    const secretBytes = encoder.encode(this.apiSecret);
+    const messageBytes = encoder.encode(stringToSign);
 
-    const key = await crypto.subtle.importKey(
+    const hmacKey = await crypto.subtle.importKey(
       "raw",
-      keyData,
+      secretBytes,
       { name: "HMAC", hash: "SHA-256" },
       false,
       ["sign"],
     );
 
-    const signature = await crypto.subtle.sign("HMAC", key, messageData);
-    return encodeBase64(signature);
+    const signatureBytes = await crypto.subtle.sign(
+      "HMAC",
+      hmacKey,
+      messageBytes,
+    );
+    return encodeBase64(signatureBytes);
   }
 
   /**
-   * Performs a GET request to the TE API
+   * GET request to TE API. Signs request with HMAC-SHA256.
    */
   async get(endpoint: string, params: Record<string, string> = {}) {
-    // Ensure endpoint starts with /
     const endpointPath = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-    // Extract version from baseUrl (e.g. /v9)
-    const urlObj = new URL(this.baseUrl);
-    const versionPrefix = urlObj.pathname.replace(/\/$/, ""); // Remove trailing slash
+    const baseUrlObj = new URL(this.baseUrl);
+    const versionPrefix = baseUrlObj.pathname.replace(/\/$/, "");
+    const fullPathForSignature = `${versionPrefix}${endpointPath}`;
 
-    // Full path for signature must include version (e.g. /v9/events)
-    const fullPath = `${versionPrefix}${endpointPath}`;
-
-    const signature = await this.generateSignature("GET", fullPath, params);
+    const signature = await this.generateSignature(
+      "GET",
+      fullPathForSignature,
+      params,
+    );
 
     const requestUrl = new URL(`${this.baseUrl}${endpointPath}`);
-    Object.entries(params).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(params)) {
       requestUrl.searchParams.append(key, value);
-    });
-
-    const headers = {
-      "X-Token": this.apiToken,
-      "X-Signature": signature,
-      "Accept": "application/json",
-    };
+    }
 
     const response = await fetch(requestUrl.toString(), {
       method: "GET",
-      headers,
+      headers: {
+        "X-Token": this.apiToken,
+        "X-Signature": signature,
+        Accept: "application/json",
+      },
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorBody = await response.text();
       throw new Error(
-        `TE API Error: ${response.status} ${response.statusText} - ${errorText}`,
+        `TE API Error: ${response.status} ${response.statusText} - ${errorBody}`,
       );
     }
 

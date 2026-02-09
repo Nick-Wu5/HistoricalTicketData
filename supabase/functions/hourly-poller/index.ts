@@ -1,17 +1,31 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type {
+  Database,
+  TablesInsert,
+  TablesUpdate,
+} from "../../database.types.ts";
 import { TicketEvolutionClient } from "@shared/te-api.ts";
 import { aggregatePrices } from "@shared/utils.ts";
 
-// Configuration
-const BATCH_SIZE = 5; // Process 5 events concurrently (reduced from 10)
-const BATCH_DELAY_MS = 5000; // Wait 5 seconds between batches (increased from 1s)
-const MAX_RETRIES = 3; // Retry failed requests up to 3 times
+// --- Configuration ---
+const BATCH_SIZE = 10; // Events processed concurrently per batch
+const MAX_RETRIES = 3; // Retries for transient TE API failures
 
-interface PollResult {
-  event: string;
-  status: "success" | "error" | "no_data" | "skipped";
-  error?: string;
-  duration_ms?: number;
+// --- Database table names (for reference) ---
+// events: Source of te_event_id, title, olt_url
+// event_price_hourly: Price aggregates per (te_event_id, captured_at_hour)
+// poller_runs: One row per hour bucket; lock + run status
+// poller_run_events: Per-event run details (succeeded/failed/skipped)
+
+/**
+ * Truncate timestamp to UTC hour bucket (YYYY-MM-DDTHH:00:00.000Z)
+ */
+function truncateToHourUTC(date: Date): string {
+  const d = new Date(date);
+  d.setUTCMinutes(0);
+  d.setUTCSeconds(0);
+  d.setUTCMilliseconds(0);
+  return d.toISOString();
 }
 
 /**
@@ -56,33 +70,34 @@ async function fetchWithRetry<T>(
   throw lastError;
 }
 
-/**
- * Process a single event
- */
 type EventRecord = {
-  id: string | number;
   te_event_id: number;
   title: string;
+  olt_url?: string;
 };
 
-type InsertResult = PromiseLike<{ error: { message: string } | null }>;
-
-type SupabaseClientLike = {
-  from: (table: string) => {
-    insert: (values: Record<string, unknown>) => InsertResult;
-  };
+type ProcessEventResult = {
+  te_event_id: number;
+  status: "succeeded" | "failed" | "skipped";
+  listing_count: number | null;
+  min_price: number | null;
+  avg_price: number | null;
+  max_price: number | null;
+  error: string | null;
 };
 
+/**
+ * Process a single event: fetch TE listings, aggregate prices, write to
+ * event_price_hourly and poller_run_events.
+ */
 async function processEvent(
   event: EventRecord,
+  hourBucket: string,
   teClient: TicketEvolutionClient,
-  supabase: SupabaseClientLike,
-): Promise<PollResult> {
-  const startTime = Date.now();
-
+  supabase: SupabaseClient<Database>,
+): Promise<ProcessEventResult> {
   try {
-    // Fetch listings with retry logic (Using correct /listings endpoint)
-    // Note: This endpoint does not support pagination and returns all listings
+    // Fetch listings from TE API (with retry)
     const response = await fetchWithRetry(
       () =>
         teClient.get(`/listings`, {
@@ -92,71 +107,181 @@ async function processEvent(
       event.title,
     );
 
-    // API returns 'ticket_groups' key (verified in debug)
-    const listings = response.ticket_groups || response.listings || [];
-    const nonEventCount = listings.filter(
-      (listing: { type?: string }) => listing.type && listing.type !== "event",
-    ).length;
-    if (nonEventCount > 0) {
-      console.log(
-        `[${event.title}] Excluded ${nonEventCount} non-event listings`,
-      );
-    }
-    const aggregates = aggregatePrices(listings);
+    const listings = response.ticket_groups ?? response.listings ?? [];
+    const aggregates = aggregatePrices(listings); // Filter + min/avg/max
 
-    if (aggregates) {
-      const { error: insertError } = await supabase
+    if (!aggregates) {
+      // Zero eligible listings: write NULLs for continuity (event_price_hourly)
+      const eventPriceHourlyRow = {
+        te_event_id: event.te_event_id,
+        captured_at_hour: hourBucket,
+        listing_count: 0,
+        min_price: null,
+        avg_price: null,
+        max_price: null,
+      } satisfies TablesInsert<"event_price_hourly">;
+
+      const { error: upsertHourlyError } = await supabase
         .from("event_price_hourly")
-        .insert({
-          event_id: event.id,
-          timestamp: new Date().toISOString(),
-          ...aggregates,
-        });
+        .upsert(
+          eventPriceHourlyRow,
+          { onConflict: "te_event_id,captured_at_hour" },
+        );
 
-      if (insertError) {
-        console.error(`[${event.title}] Database insert error:`, insertError);
-        return {
-          event: event.title,
-          status: "error",
-          error: insertError.message,
-          duration_ms: Date.now() - startTime,
-        };
+      if (upsertHourlyError) {
+        throw new Error(
+          `Failed to upsert hourly data: ${upsertHourlyError.message}`,
+        );
+      }
+
+      // Log skipped event (poller_run_events)
+      const pollerRunEventRow = {
+        hour_bucket: hourBucket,
+        te_event_id: event.te_event_id,
+        status: "skipped",
+        listing_count: 0,
+        min_price: null,
+        avg_price: null,
+        max_price: null,
+        error: "no_eligible_listings",
+      } satisfies TablesInsert<"poller_run_events">;
+
+      const { error: logRunEventError } = await supabase
+        .from("poller_run_events")
+        .upsert(
+          pollerRunEventRow,
+          { onConflict: "hour_bucket,te_event_id" },
+        );
+
+      if (logRunEventError) {
+        console.error(
+          `[${event.title}] Failed to log skipped event:`,
+          logRunEventError.message,
+        );
       }
 
       return {
-        event: event.title,
-        status: "success",
-        duration_ms: Date.now() - startTime,
-      };
-    } else {
-      console.log(`[${event.title}] No listings found`);
-      return {
-        event: event.title,
-        status: "no_data",
-        duration_ms: Date.now() - startTime,
+        te_event_id: event.te_event_id,
+        status: "skipped",
+        listing_count: 0,
+        min_price: null,
+        avg_price: null,
+        max_price: null,
+        error: "no_eligible_listings",
       };
     }
+
+    // Upsert price aggregates (event_price_hourly)
+    const eventPriceHourlyRow = {
+      te_event_id: event.te_event_id,
+      captured_at_hour: hourBucket,
+      listing_count: aggregates.listing_count,
+      min_price: aggregates.min_price,
+      avg_price: aggregates.avg_price,
+      max_price: aggregates.max_price,
+    } satisfies TablesInsert<"event_price_hourly">;
+
+    const { error: upsertHourlyError } = await supabase
+      .from("event_price_hourly")
+      .upsert(
+        eventPriceHourlyRow,
+        { onConflict: "te_event_id,captured_at_hour" },
+      );
+
+    if (upsertHourlyError) {
+      throw new Error(
+        `Failed to upsert hourly data: ${upsertHourlyError.message}`,
+      );
+    }
+
+    // Log successful event (poller_run_events)
+    const pollerRunEventRow = {
+      hour_bucket: hourBucket,
+      te_event_id: event.te_event_id,
+      status: "succeeded",
+      listing_count: aggregates.listing_count,
+      min_price: aggregates.min_price,
+      avg_price: aggregates.avg_price,
+      max_price: aggregates.max_price,
+      error: null,
+    } satisfies TablesInsert<"poller_run_events">;
+
+    const { error: logRunEventError } = await supabase
+      .from("poller_run_events")
+      .upsert(
+        pollerRunEventRow,
+        { onConflict: "hour_bucket,te_event_id" },
+      );
+
+    if (logRunEventError) {
+      console.error(
+        `[${event.title}] Failed to log event:`,
+        logRunEventError.message,
+      );
+    }
+
+    return {
+      te_event_id: event.te_event_id,
+      status: "succeeded",
+      listing_count: aggregates.listing_count,
+      min_price: aggregates.min_price,
+      avg_price: aggregates.avg_price,
+      max_price: aggregates.max_price,
+      error: null,
+    };
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error(`[${event.title}] Error:`, error.message);
-    return {
-      event: event.title,
-      status: "error",
+
+    // Log failed event (poller_run_events)
+    const pollerRunEventRow = {
+      hour_bucket: hourBucket,
+      te_event_id: event.te_event_id,
+      status: "failed",
+      listing_count: null,
+      min_price: null,
+      avg_price: null,
+      max_price: null,
       error: error.message,
-      duration_ms: Date.now() - startTime,
+    } satisfies TablesInsert<"poller_run_events">;
+
+    const { error: logRunEventError } = await supabase
+      .from("poller_run_events")
+      .upsert(
+        pollerRunEventRow,
+        { onConflict: "hour_bucket,te_event_id" },
+      );
+
+    if (logRunEventError) {
+      console.error(
+        `[${event.title}] Failed to log error:`,
+        logRunEventError.message,
+      );
+    }
+
+    return {
+      te_event_id: event.te_event_id,
+      status: "failed",
+      listing_count: null,
+      min_price: null,
+      avg_price: null,
+      max_price: null,
+      error: error.message,
     };
   }
 }
 
 /**
- * Process events in batches with controlled concurrency
+ * Process events in batches with controlled concurrency.
+ * Updates poller_runs.events_processed after each batch.
  */
 async function processBatch(
   events: EventRecord[],
+  hourBucket: string,
   teClient: TicketEvolutionClient,
-  supabase: SupabaseClientLike,
-): Promise<PollResult[]> {
-  const results: PollResult[] = [];
+  supabase: SupabaseClient<Database>,
+): Promise<ProcessEventResult[]> {
+  const results: ProcessEventResult[] = [];
 
   for (let i = 0; i < events.length; i += BATCH_SIZE) {
     const batch = events.slice(i, i + BATCH_SIZE);
@@ -169,7 +294,7 @@ async function processBatch(
 
     // Process batch concurrently
     const batchResults = await Promise.allSettled(
-      batch.map((event) => processEvent(event, teClient, supabase)),
+      batch.map((event) => processEvent(event, hourBucket, teClient, supabase)),
     );
 
     // Extract results
@@ -177,18 +302,35 @@ async function processBatch(
       if (result.status === "fulfilled") {
         results.push(result.value);
       } else {
+        const errorMsg = result.reason?.message || "Unknown error";
         results.push({
-          event: "unknown",
-          status: "error",
-          error: result.reason?.message || "Unknown error",
+          te_event_id: 0,
+          status: "failed",
+          listing_count: null,
+          min_price: null,
+          avg_price: null,
+          max_price: null,
+          error: errorMsg,
         });
       }
     }
 
-    // Rate limiting: wait between batches (except for last batch)
-    if (i + BATCH_SIZE < events.length) {
-      console.log(`Waiting ${BATCH_DELAY_MS}ms before next batch...`);
-      await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+    // Update poller_runs.events_processed after each batch
+    const eventsProcessedSoFar = results.length;
+    const { error: updatePollerRunError } = await supabase
+      .from("poller_runs")
+      .update(
+        { events_processed: eventsProcessedSoFar } satisfies TablesUpdate<
+          "poller_runs"
+        >,
+      )
+      .eq("hour_bucket", hourBucket);
+
+    if (updatePollerRunError) {
+      console.error(
+        "Failed to update events_processed:",
+        updatePollerRunError.message,
+      );
     }
   }
 
@@ -196,10 +338,12 @@ async function processBatch(
 }
 
 /**
- * Main Edge Function handler
+ * Main Edge Function handler.
+ * Flow: acquire lock → fetch events → process batches → update final status.
  */
 Deno.serve(async (_req) => {
   const startTime = Date.now();
+  const hourBucket = truncateToHourUTC(new Date());
 
   try {
     // Environment variables
@@ -209,71 +353,243 @@ Deno.serve(async (_req) => {
     const teSecret = Deno.env.get("TE_API_SECRET")!;
 
     // Initialize clients
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient<Database>(supabaseUrl, supabaseKey);
     const teClient = new TicketEvolutionClient(teToken, teSecret);
 
-    // Fetch events to poll
-    const { data: eventsData, error: fetchError } = await supabase
-      .from("events")
-      .select("id, te_event_id, title")
-      .order("title");
+    // Step 1: Acquire hourly lock (poller_runs)
+    // Canonical pattern (Supabase JS): INSERT and treat unique-violation as "already running/ran".
+    // Any non-conflict DB error is fatal. "Already ran" is only returned when the existing row is finished.
+    const jsonHeaders = { "Content-Type": "application/json" };
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch events: ${fetchError.message}`);
+    const newPollerRunRecord = {
+      hour_bucket: hourBucket,
+      status: "started",
+      batch_size: BATCH_SIZE,
+      events_processed: 0,
+    } satisfies TablesInsert<"poller_runs">;
+
+    const { error: lockAcquireError } = await supabase
+      .from("poller_runs")
+      .insert(newPollerRunRecord);
+
+    if (lockAcquireError) {
+      // Deterministic conflict detection: unique violation on hour_bucket
+      const isConflict = lockAcquireError.code === "23505";
+      if (!isConflict) {
+        throw new Error(`Failed to acquire lock: ${lockAcquireError.message}`);
+      }
+
+      // True conflict: row already exists for this hour bucket.
+      const { data: existingRun, error: readExistingErr } = await supabase
+        .from("poller_runs")
+        .select("hour_bucket, started_at, finished_at")
+        .eq("hour_bucket", hourBucket)
+        .maybeSingle();
+
+      if (readExistingErr) {
+        throw new Error(
+          `Failed to read existing run row: ${readExistingErr.message}`,
+        );
+      }
+      if (!existingRun) {
+        throw new Error(
+          `Lock conflict but run row missing for hour bucket ${hourBucket}`,
+        );
+      }
+
+      // If the run is already finished, it truly already ran.
+      if (existingRun.finished_at) {
+        return new Response(
+          JSON.stringify({
+            status: "skipped",
+            reason: "already_ran",
+            hour_bucket: hourBucket,
+          }),
+          { status: 200, headers: jsonHeaders },
+        );
+      }
+
+      // Minimal stale-lock recovery:
+      // if unfinished AND started_at < now - 15 minutes, mark stale + reclaim the lock.
+      const staleCutoffIso = new Date(Date.now() - 15 * 60 * 1000)
+        .toISOString();
+      const nowIso = new Date().toISOString();
+
+      const { data: recoveredRows, error: recoverErr } = await supabase
+        .from("poller_runs")
+        .update(
+          {
+            // Mark the previous in-flight attempt as stale/failed, but keep finished_at NULL
+            // so a future invocation can recover again if this run dies too.
+            status: "failed",
+            error_sample: "stale_lock_timeout",
+            started_at: nowIso,
+            batch_size: BATCH_SIZE,
+            events_processed: 0,
+          } satisfies TablesUpdate<"poller_runs">,
+        )
+        .eq("hour_bucket", hourBucket)
+        .is("finished_at", null)
+        .lt("started_at", staleCutoffIso)
+        .select("hour_bucket");
+
+      if (recoverErr) {
+        throw new Error(`Failed stale-lock recovery: ${recoverErr.message}`);
+      }
+
+      const didRecoverStaleLock = Array.isArray(recoveredRows) &&
+        recoveredRows.length > 0 &&
+        recoveredRows[0]?.hour_bucket === hourBucket;
+
+      if (!didRecoverStaleLock) {
+        // Not stale: another invocation is still running (or just started).
+        return new Response(
+          JSON.stringify({
+            status: "skipped",
+            reason: "already_running",
+            hour_bucket: hourBucket,
+          }),
+          { status: 200, headers: jsonHeaders },
+        );
+      }
+
+      console.log(`Recovered stale lock for hour bucket: ${hourBucket}`);
     }
 
-    const events = (eventsData ?? []).map(
+    // Insert succeeded => we acquired the lock
+    console.log(`Acquired lock for hour bucket: ${hourBucket}`);
+
+    // Step 2: Fetch events from database (events table)
+    const { data: eventsRows, error: fetchEventsError } = await supabase
+      .from("events")
+      .select("te_event_id, title, olt_url")
+      .order("title");
+
+    if (fetchEventsError) {
+      throw new Error(`Failed to fetch events: ${fetchEventsError.message}`);
+    }
+
+    const events = (eventsRows ?? []).map(
       (
-        event: {
-          id: string | number;
-          te_event_id: string | number;
-          title: string;
-        },
+        event: { te_event_id: number; title: string; olt_url?: string | null },
       ) => ({
-        id: event.id,
-        te_event_id: Number(event.te_event_id),
+        te_event_id: event.te_event_id,
         title: event.title,
+        olt_url: event.olt_url ?? undefined,
       }),
     );
 
+    // Update poller_runs.events_total (how many events we'll process)
+    const { error: updateEventsTotalError } = await supabase
+      .from("poller_runs")
+      .update(
+        { events_total: events.length } satisfies TablesUpdate<"poller_runs">,
+      )
+      .eq("hour_bucket", hourBucket);
+
+    if (updateEventsTotalError) {
+      console.error(
+        "Failed to update events_total:",
+        updateEventsTotalError.message,
+      );
+    }
+
     if (events.length === 0) {
+      // No events: mark run as succeeded and return early
+      const { error: finishRunError } = await supabase
+        .from("poller_runs")
+        .update(
+          {
+            status: "succeeded",
+            finished_at: new Date().toISOString(),
+            events_succeeded: 0,
+            events_failed: 0,
+          } satisfies TablesUpdate<"poller_runs">,
+        )
+        .eq("hour_bucket", hourBucket);
+
+      if (finishRunError) {
+        console.error(
+          "Failed to mark run as succeeded:",
+          finishRunError.message,
+        );
+      }
+
       return new Response(
-        JSON.stringify({ message: "No events to poll" }),
-        { headers: { "Content-Type": "application/json" } },
+        JSON.stringify({
+          status: "succeeded",
+          hour_bucket: hourBucket,
+          message: "No events to poll",
+          events_total: 0,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
     console.log(`Starting poll for ${events.length} events...`);
 
-    // Process events in batches
-    const results = await processBatch(events, teClient, supabase);
+    // Step 3: Process events in batches
+    const results = await processBatch(events, hourBucket, teClient, supabase);
 
-    // Calculate statistics
-    const totalDuration = Date.now() - startTime;
-    const stats = {
-      total: results.length,
-      success: results.filter((r) => r.status === "success").length,
-      no_data: results.filter((r) => r.status === "no_data").length,
-      errors: results.filter((r) => r.status === "error").length,
-      avg_duration_ms: Math.round(
-        results.reduce((sum, r) => sum + (r.duration_ms || 0), 0) /
-          results.length,
-      ),
-      total_duration_ms: totalDuration,
-    };
+    // Step 4: Calculate final statistics from results
+    const eventsSucceeded = results.filter((r) =>
+      r.status === "succeeded"
+    ).length;
+    const eventsFailed = results.filter((r) => r.status === "failed").length;
+    const eventsSkipped = results.filter((r) => r.status === "skipped").length;
+    const totalDurationMs = Date.now() - startTime;
 
-    // Log summary
-    console.log(JSON.stringify({
-      type: "poll_complete",
-      timestamp: new Date().toISOString(),
-      ...stats,
-    }));
+    // Determine final run status (poller_runs.status)
+    let finalStatus: "succeeded" | "partial" | "failed";
+    if (eventsFailed === 0) {
+      finalStatus = "succeeded";
+    } else if (eventsSucceeded > 0) {
+      finalStatus = "partial";
+    } else {
+      finalStatus = "failed";
+    }
 
+    // First error message for error_sample (for debugging)
+    const firstErrorMessage = results.find((r) => r.error)?.error ?? null;
+
+    // Step 5: Update poller_runs with final status and stats
+    const { error: finishRunError } = await supabase
+      .from("poller_runs")
+      .update(
+        {
+          status: finalStatus,
+          finished_at: new Date().toISOString(),
+          events_processed: results.length,
+          events_succeeded: eventsSucceeded,
+          events_failed: eventsFailed,
+          error_sample: firstErrorMessage,
+          debug: {
+            total_duration_ms: totalDurationMs,
+            batches: Math.ceil(events.length / BATCH_SIZE),
+            skipped_count: eventsSkipped,
+          },
+        } satisfies TablesUpdate<"poller_runs">,
+      )
+      .eq("hour_bucket", hourBucket);
+
+    if (finishRunError) {
+      console.error("Failed to update final status:", finishRunError.message);
+    }
+
+    // Return summary response
     return new Response(
       JSON.stringify({
-        message: "Polling complete",
-        stats,
-        results: results.filter((r) => r.status === "error"), // Only return errors for debugging
+        status: finalStatus,
+        hour_bucket: hourBucket,
+        events_total: events.length,
+        events_processed: results.length,
+        events_succeeded: eventsSucceeded,
+        events_failed: eventsFailed,
+        events_skipped: eventsSkipped,
+        total_duration_ms: totalDurationMs,
       }),
       {
         status: 200,
@@ -282,15 +598,44 @@ Deno.serve(async (_req) => {
     );
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
+
+    // Try to mark poller_runs row as failed (best-effort)
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+
+      await supabase
+        .from("poller_runs")
+        .update(
+          {
+            status: "failed",
+            finished_at: new Date().toISOString(),
+            error_sample: err.message,
+          } satisfies TablesUpdate<"poller_runs">,
+        )
+        .eq("hour_bucket", hourBucket);
+    } catch (updatePollerRunErr) {
+      console.error(
+        "Failed to update run status on error:",
+        updatePollerRunErr,
+      );
+    }
+
     console.error(JSON.stringify({
       type: "poll_error",
       timestamp: new Date().toISOString(),
+      hour_bucket: hourBucket,
       error: err.message,
       stack: err.stack,
     }));
 
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({
+        status: "failed",
+        hour_bucket: hourBucket,
+        error: err.message,
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
