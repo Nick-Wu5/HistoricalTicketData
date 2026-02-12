@@ -1,6 +1,7 @@
 /**
  * Calculate price aggregates from TE API listings.
  * Filters: type=event, retail_price valid, available_quantity>=2, splits includes 2.
+ * Excludes listings with OLT non-buyable phrases in notes (rejected/not-fulfilled/pending).
  * Returns min/avg/max and listing_count for event_price_hourly writes.
  */
 type Listing = {
@@ -8,7 +9,27 @@ type Listing = {
   retail_price: number | string;
   available_quantity: number;
   splits?: number[];
+  public_notes?: string;
+  notes?: string;
 };
+
+/**
+ * Exclude listings that OLT/prior implementation would not treat as "starting at"
+ * (rejected, not-fulfilled, pending inventory).
+ */
+function isBuyableListing(listing: Listing): boolean {
+  const notes = String(
+    listing.public_notes ?? listing.notes ?? "",
+  ).toLowerCase();
+  const badPhrases = [
+    "will be rejected",
+    "accepted but not fulfilled",
+    "will be accepted but not fulfilled",
+    "will remain pending",
+    "not fulfilled",
+  ];
+  return !badPhrases.some((phrase) => notes.includes(phrase));
+}
 
 export function aggregatePrices(listings: Listing[]) {
   if (!listings || listings.length === 0) {
@@ -19,6 +40,7 @@ export function aggregatePrices(listings: Listing[]) {
   // Step 1: Filter to eligible event listings
   const eligibleListings = listings.filter((listing) => {
     if (listing.type !== "event") return false;
+    if (!isBuyableListing(listing)) return false;
 
     const rawPrice = listing.retail_price;
     const price =
