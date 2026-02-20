@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       event_price_daily: {
@@ -118,7 +93,10 @@ export type Database = {
       events: {
         Row: {
           created_at: string
+          ended_at: string | null
+          ends_at: string | null
           olt_url: string | null
+          polling_enabled: boolean
           starts_at: string | null
           te_event_id: number
           title: string
@@ -126,7 +104,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          ended_at?: string | null
+          ends_at?: string | null
           olt_url?: string | null
+          polling_enabled?: boolean
           starts_at?: string | null
           te_event_id: number
           title: string
@@ -134,7 +115,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          ended_at?: string | null
+          ends_at?: string | null
           olt_url?: string | null
+          polling_enabled?: boolean
           starts_at?: string | null
           te_event_id?: number
           title?: string
@@ -392,9 +376,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

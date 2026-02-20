@@ -10,11 +10,15 @@ export class TicketEvolutionClient {
   private apiToken: string;
   private apiSecret: string;
   /** Sandbox: api.sandbox.ticketevolution.com; Production: api.ticketevolution.com */
-  private baseUrl = "https://api.sandbox.ticketevolution.com/v9";
+  private baseUrl: string;
 
-  constructor(token: string, secret: string) {
+  constructor(token: string, secret: string, baseUrl?: string) {
     this.apiToken = token;
     this.apiSecret = secret;
+    // Allow override via env var or constructor param (defaults to sandbox)
+    this.baseUrl = baseUrl ||
+      Deno.env.get("TE_API_BASE_URL") ||
+      "https://api.sandbox.ticketevolution.com/v9";
   }
 
   /**
@@ -30,11 +34,10 @@ export class TicketEvolutionClient {
     const sortedParams: Record<string, string> = {};
     for (const key of sortedKeys) sortedParams[key] = params[key];
 
-    const queryString =
-      sortedKeys.length > 0
-        ? "?" +
-          new URLSearchParams(sortedParams).toString().replace(/\+/g, "%20")
-        : "?";
+    const queryString = sortedKeys.length > 0
+      ? "?" +
+        new URLSearchParams(sortedParams).toString().replace(/\+/g, "%20")
+      : "?";
 
     const baseUrlObj = new URL(this.baseUrl);
     const hostname = baseUrlObj.hostname;

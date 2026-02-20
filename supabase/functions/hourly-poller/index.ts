@@ -29,6 +29,34 @@ function truncateToHourUTC(date: Date): string {
 }
 
 /**
+ * Generate a simple hash of listings data for comparison purposes.
+ * Used to detect if API data actually changed between polls.
+ */
+function hashListings(listings: unknown[]): string {
+  if (!listings || listings.length === 0) return "empty";
+
+  // Create a simple hash based on listing IDs and prices
+  const summary = listings
+    .slice(0, 10) // Sample first 10 to avoid huge strings
+    .map((l) => {
+      const listing = l as { id?: unknown; retail_price?: unknown };
+      return `${String(listing.id || "")}:${
+        String(listing.retail_price || "")
+      }`;
+    })
+    .join(",");
+
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < summary.length; i++) {
+    const char = summary.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+/**
  * Retry wrapper with exponential backoff
  */
 async function fetchWithRetry<T>(
@@ -108,7 +136,54 @@ async function processEvent(
     );
 
     const listings = response.ticket_groups ?? response.listings ?? [];
+
+    // Diagnostic: Log data hash to detect if API returned different data
+    const dataHash = hashListings(listings);
+    console.log(
+      `[${event.title}] Fetched ${listings.length} listings, data hash: ${dataHash}`,
+    );
+
     const aggregates = aggregatePrices(listings); // Filter + min/avg/max
+
+    // Compare with previous hour's data (if available) for diagnostics
+    const { data: previousHourData } = await supabase
+      .from("event_price_hourly")
+      .select(
+        "min_price, avg_price, max_price, listing_count, captured_at_hour",
+      )
+      .eq("te_event_id", event.te_event_id)
+      .order("captured_at_hour", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (previousHourData && previousHourData.captured_at_hour !== hourBucket) {
+      const prevHour = previousHourData.captured_at_hour;
+      const priceChanged = aggregates &&
+        previousHourData.min_price !== null &&
+        aggregates.min_price !== null &&
+        Math.abs(
+            (previousHourData.min_price || 0) - (aggregates.min_price || 0),
+          ) > 0.01;
+
+      console.log(
+        `[${event.title}] Previous hour (${prevHour}): ` +
+          `min=$${previousHourData.min_price}, count=${previousHourData.listing_count}`,
+      );
+
+      if (aggregates) {
+        console.log(
+          `[${event.title}] Current hour (${hourBucket}): ` +
+            `min=$${aggregates.min_price}, count=${aggregates.listing_count}`,
+        );
+
+        if (!priceChanged) {
+          console.log(
+            `[${event.title}] ⚠️  WARNING: Same aggregate prices as previous hour ` +
+              `(${prevHour}). This may indicate stale sandbox data or identical API response.`,
+          );
+        }
+      }
+    }
 
     if (!aggregates) {
       // Zero eligible listings: write NULLs for continuity (event_price_hourly)
@@ -343,7 +418,8 @@ async function processBatch(
  */
 Deno.serve(async (_req) => {
   const startTime = Date.now();
-  const hourBucket = truncateToHourUTC(new Date());
+  const now = new Date();
+  const hourBucket = truncateToHourUTC(now);
 
   try {
     // Environment variables
@@ -351,10 +427,30 @@ Deno.serve(async (_req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const teToken = Deno.env.get("TE_API_TOKEN")!;
     const teSecret = Deno.env.get("TE_API_SECRET")!;
+    const teBaseUrl = Deno.env.get("TE_API_BASE_URL"); // Optional: override API base URL
+
+    // Diagnostic logging
+    console.log(
+      "═══════════════════════════════════════════════════════════════",
+    );
+    console.log("HOURLY POLLER STARTING");
+    console.log(
+      "═══════════════════════════════════════════════════════════════",
+    );
+    console.log(`Current UTC time: ${now.toISOString()}`);
+    console.log(`Hour bucket: ${hourBucket}`);
+    console.log(
+      `API Base URL: ${
+        teBaseUrl || "https://api.sandbox.ticketevolution.com/v9 (default)"
+      }`,
+    );
+    console.log(
+      "═══════════════════════════════════════════════════════════════\n",
+    );
 
     // Initialize clients
     const supabase = createClient<Database>(supabaseUrl, supabaseKey);
-    const teClient = new TicketEvolutionClient(teToken, teSecret);
+    const teClient = new TicketEvolutionClient(teToken, teSecret, teBaseUrl);
 
     // Step 1: Acquire hourly lock (poller_runs)
     // Canonical pattern (Supabase JS): INSERT and treat unique-violation as "already running/ran".
@@ -578,6 +674,24 @@ Deno.serve(async (_req) => {
     if (finishRunError) {
       console.error("Failed to update final status:", finishRunError.message);
     }
+
+    // Diagnostic summary
+    console.log(
+      "\n═══════════════════════════════════════════════════════════════",
+    );
+    console.log("POLLER RUN COMPLETE");
+    console.log(
+      "═══════════════════════════════════════════════════════════════",
+    );
+    console.log(`Hour bucket: ${hourBucket}`);
+    console.log(`Events processed: ${results.length}`);
+    console.log(`  ✓ Succeeded: ${eventsSucceeded}`);
+    console.log(`  ✗ Failed: ${eventsFailed}`);
+    console.log(`  ⊘ Skipped: ${eventsSkipped}`);
+    console.log(`Total duration: ${totalDurationMs}ms`);
+    console.log(
+      "═══════════════════════════════════════════════════════════════\n",
+    );
 
     // Return summary response
     return new Response(

@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/', // Script will be loaded from site root (e.g. /ticket-embed.js)
   build: {
     lib: {
       entry: './src/main.jsx',
@@ -11,22 +12,15 @@ export default defineConfig({
       formats: ['iife'],
       fileName: () => 'ticket-embed.js'
     },
+    outDir: 'dist',
     rollupOptions: {
-      // Don't externalize anything - bundle everything together
       external: [],
       output: {
-        // Inline all dependencies into a single file
-        inlineDynamicImports: true,
-        // Global variable name for the widget
+        inlineDynamicImports: true, // Single file; no code-splitting
         name: 'TicketWidget'
       }
     },
-    // Optimize for production
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true
-      }
-    }
+    minify: 'esbuild', // Default; no terser dependency. Set to 'terser' + install terser if you need drop_console later.
+    sourcemap: false
   }
 })
