@@ -8,7 +8,9 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "gen:types": "supabase gen types typescript --project-id tusmcdkrlzsakwbbqpvs --schema public > supabase/database.types.ts"
+    "gen:types": "supabase gen types typescript --project-id tusmcdkrlzsakwbbqpvs --schema public > supabase/database.types.ts",
+    "populate:events:performer": "node scripts/populateEventsByPerformer.js",
+    "populate:events:performer:new-only": "node scripts/populateEventsByPerformer.js --insert_only_new=true"
   },
   "repository": {
     "type": "git",

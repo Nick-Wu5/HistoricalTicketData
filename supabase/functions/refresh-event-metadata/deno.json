@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "jsr:@supabase/functions-js/edge-runtime.d.ts": "https://esm.sh/@supabase/functions-js@2/edge-runtime.d.ts",
+    "@shared/": "../_shared/",
+    "@std/crypto": "jsr:@std/crypto@1.0.5",
+    "@std/encoding/base64": "jsr:@std/encoding@1.0.10/base64"
+  }
+}

@@ -98,11 +98,16 @@ async function fetchWithRetry<T>(
   throw lastError;
 }
 
-type EventRecord = {
+type EventSelectionRow = {
   te_event_id: number;
   title: string;
-  olt_url?: string;
+  olt_url?: string | null;
+  polling_enabled: boolean;
+  ends_at?: string | null;
+  ended_at?: string | null;
 };
+
+type EventRecord = Pick<EventSelectionRow, "te_event_id" | "title" | "olt_url">;
 
 type ProcessEventResult = {
   te_event_id: number;
@@ -113,6 +118,95 @@ type ProcessEventResult = {
   max_price: number | null;
   error: string | null;
 };
+
+type RetentionResult = {
+  retentionDays: number;
+  cutoffIso: string;
+  endedEventCount: number;
+  deletedHourlyRows: number;
+};
+
+function getHourlyRetentionDaysAfterEnd(): number {
+  const raw = Deno.env.get("HOURLY_RETENTION_DAYS_AFTER_END");
+  if (!raw) return 7;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return 7;
+  return parsed;
+}
+
+/**
+ * Retention policy:
+ * - Active events: keep hourly + daily data
+ * - Ended events: keep daily long-term; prune hourly rows older than cutoff
+ *
+ * Idempotent: repeated executions with the same cutoff delete zero additional rows.
+ */
+async function applyEndedEventHourlyRetention(
+  supabase: SupabaseClient<Database>,
+  now: Date,
+): Promise<RetentionResult> {
+  const retentionDays = getHourlyRetentionDaysAfterEnd();
+  const nowIso = now.toISOString();
+  const cutoffIso = new Date(
+    now.getTime() - retentionDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  // Ended = explicit ended_at OR scheduled ends_at in the past
+  const { data: endedAtRows, error: endedAtErr } = await supabase
+    .from("events")
+    .select("te_event_id")
+    .not("ended_at", "is", null);
+
+  if (endedAtErr) {
+    throw new Error(`Retention query failed (ended_at): ${endedAtErr.message}`);
+  }
+
+  const { data: endsAtPastRows, error: endsAtPastErr } = await supabase
+    .from("events")
+    .select("te_event_id")
+    .is("ended_at", null)
+    .not("ends_at", "is", null)
+    .lt("ends_at", nowIso);
+
+  if (endsAtPastErr) {
+    throw new Error(
+      `Retention query failed (ends_at past): ${endsAtPastErr.message}`,
+    );
+  }
+
+  const endedIds = new Set<number>();
+  for (const row of endedAtRows ?? []) endedIds.add(row.te_event_id);
+  for (const row of endsAtPastRows ?? []) endedIds.add(row.te_event_id);
+
+  if (endedIds.size === 0) {
+    return {
+      retentionDays,
+      cutoffIso,
+      endedEventCount: 0,
+      deletedHourlyRows: 0,
+    };
+  }
+
+  const { data: deletedRows, error: deleteErr } = await supabase
+    .from("event_price_hourly")
+    .delete()
+    .in("te_event_id", Array.from(endedIds))
+    .lt("captured_at_hour", cutoffIso)
+    .select("te_event_id");
+
+  if (deleteErr) {
+    throw new Error(
+      `Retention delete failed (event_price_hourly): ${deleteErr.message}`,
+    );
+  }
+
+  return {
+    retentionDays,
+    cutoffIso,
+    endedEventCount: endedIds.size,
+    deletedHourlyRows: deletedRows?.length ?? 0,
+  };
+}
 
 /**
  * Process a single event: fetch TE listings, aggregate prices, write to
@@ -558,22 +652,79 @@ Deno.serve(async (_req) => {
     // Step 2: Fetch events from database (events table)
     const { data: eventsRows, error: fetchEventsError } = await supabase
       .from("events")
-      .select("te_event_id, title, olt_url")
+      .select("te_event_id, title, olt_url, polling_enabled, ends_at, ended_at")
       .order("title");
 
     if (fetchEventsError) {
       throw new Error(`Failed to fetch events: ${fetchEventsError.message}`);
     }
 
-    const events = (eventsRows ?? []).map(
-      (
-        event: { te_event_id: number; title: string; olt_url?: string | null },
-      ) => ({
+    // Stop-check filtering:
+    // - polling_enabled must be true
+    // - ended_at must be null
+    // - ends_at must be null or in the future
+    const nowMs = now.getTime();
+    const rows = (eventsRows ?? []) as EventSelectionRow[];
+    const events = rows.filter((event) => {
+      if (!event.polling_enabled) return false;
+      if (event.ended_at) return false;
+      if (!event.ends_at) return true;
+      const endsAtMs = new Date(event.ends_at).getTime();
+      if (Number.isNaN(endsAtMs)) return true;
+      return endsAtMs > nowMs;
+    }).map((event) => ({
         te_event_id: event.te_event_id,
         title: event.title,
         olt_url: event.olt_url ?? undefined,
-      }),
-    );
+      }));
+
+    const skippedByStopCheck = rows.length - events.length;
+    if (skippedByStopCheck > 0) {
+      console.log(
+        `Stop-check filtered ${skippedByStopCheck} events (disabled/ended/past ends_at)`,
+      );
+    }
+
+    // Step 2.5: Retention cleanup for ended events
+    // Policy: keep daily long-term; prune old hourly rows for ended events.
+    let retentionDebug: {
+      retention_days: number | null;
+      cutoff_iso: string | null;
+      ended_event_count: number;
+      deleted_hourly_rows: number;
+      error: string | null;
+    } = {
+      retention_days: null,
+      cutoff_iso: null,
+      ended_event_count: 0,
+      deleted_hourly_rows: 0,
+      error: null,
+    };
+
+    try {
+      const retention = await applyEndedEventHourlyRetention(supabase, now);
+      retentionDebug = {
+        retention_days: retention.retentionDays,
+        cutoff_iso: retention.cutoffIso,
+        ended_event_count: retention.endedEventCount,
+        deleted_hourly_rows: retention.deletedHourlyRows,
+        error: null,
+      };
+
+      if (retention.deletedHourlyRows > 0) {
+        console.log(
+          `Retention pruned ${retention.deletedHourlyRows} hourly rows ` +
+            `for ${retention.endedEventCount} ended events ` +
+            `(cutoff=${retention.cutoffIso}, days=${retention.retentionDays})`,
+        );
+      }
+    } catch (retentionErr: unknown) {
+      const msg = retentionErr instanceof Error
+        ? retentionErr.message
+        : String(retentionErr);
+      retentionDebug.error = msg;
+      console.error("Retention cleanup failed (non-fatal):", msg);
+    }
 
     // Update poller_runs.events_total (how many events we'll process)
     const { error: updateEventsTotalError } = await supabase
@@ -600,6 +751,12 @@ Deno.serve(async (_req) => {
             finished_at: new Date().toISOString(),
             events_succeeded: 0,
             events_failed: 0,
+            debug: {
+              total_duration_ms: Date.now() - startTime,
+              batches: 0,
+              skipped_count: 0,
+              retention: retentionDebug,
+            },
           } satisfies TablesUpdate<"poller_runs">,
         )
         .eq("hour_bucket", hourBucket);
@@ -666,6 +823,7 @@ Deno.serve(async (_req) => {
             total_duration_ms: totalDurationMs,
             batches: Math.ceil(events.length / BATCH_SIZE),
             skipped_count: eventsSkipped,
+            retention: retentionDebug,
           },
         } satisfies TablesUpdate<"poller_runs">,
       )
