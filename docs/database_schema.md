@@ -118,6 +118,12 @@ In simple terms: It’s a custom script that runs _inside_ the database instead 
 - **What it does**: Periodically aggregates the detailed hourly data into the `event_price_daily` table.
 - **Why**: This keeps long‑term charts snappy by summarizing older data into one row per day instead of thousands of hourly rows.
 
+#### `apply_ended_event_hourly_retention(p_retention_days integer default 7)`
+
+- **What it does**: Deletes old hourly rows from `event_price_hourly` for ended events only.
+- **Why**: Keeps storage bounded while preserving long-term history in `event_price_daily`.
+- **Run order**: Scheduled after `rollup_hourly_to_daily()` so cleanup never precedes daily aggregation.
+
 ---
 
 ## 4. Security (RLS)

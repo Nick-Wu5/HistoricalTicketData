@@ -65,7 +65,7 @@ Longer‑term, some of these knobs should move into a **`settings` config table*
 
 ### 2.2 Hourly retention window after event end
 
-**Scope:** `hourly-poller` Edge Function (retention cleanup step)
+**Scope:** Daily DB retention function (`public.apply_ended_event_hourly_retention`) scheduled after daily rollup
 
 Env var:
 
@@ -75,23 +75,23 @@ Env var:
 
 **Where it’s used:**
 
-- In `supabase/functions/hourly-poller/index.ts`:
-  - `getHourlyRetentionDaysAfterEnd()` reads the env var.
-  - `applyEndedEventHourlyRetention(...)`:
-    - Finds ended events (`ended_at` set OR `ends_at < now()`).
-    - Deletes `event_price_hourly` rows older than the cutoff.
-    - Is **idempotent**: running again with the same cutoff won’t delete additional rows.
+- In SQL function:
+  - `public.apply_ended_event_hourly_retention(p_retention_days integer default 7)`
+  - Finds ended events (`ended_at` set OR `ends_at < now()`).
+  - Deletes `event_price_hourly` rows older than cutoff.
+  - Is **idempotent**: running again with the same cutoff won’t delete additional rows.
+- Scheduled via pg_cron as `daily_retention` after `daily_rollup`.
 
 **How to change (Supabase):**
 
-1. In Supabase dashboard, under Edge Function secrets:
-   - Add or update `HOURLY_RETENTION_DAYS_AFTER_END`.
+1. Update retention day argument in cron command:
+   - `select public.apply_ended_event_hourly_retention(7);`
    - Examples:
      - `7` (keep one week of hourly after end)
      - `30` (keep one month of hourly after end)
-2. Redeploy `hourly-poller`.
-3. Verify via:
-   - Recent `poller_runs.debug.retention` JSON (contains `retention_days`, `cutoff_iso`, `deleted_hourly_rows`).
+2. Verify in SQL:
+   - `select * from public.apply_ended_event_hourly_retention(7);`
+   - `select jobname, schedule, command, active from cron.job where jobname in ('daily_rollup', 'daily_retention');`
 
 **Guidance:**
 
@@ -126,9 +126,10 @@ See [§2.2 Hourly retention window after event end](#22-hourly-retention-window-
 **Quick recipe:**
 
 - “Keep 30 days of hourly after events end”:
-  1. Set `HOURLY_RETENTION_DAYS_AFTER_END=30` in Supabase secrets.
-  2. Redeploy `hourly-poller`.
-  3. After a few runs, check logs / `poller_runs.debug.retention` for deletions around the new cutoff.
+  1. Update cron command to call:
+     - `select public.apply_ended_event_hourly_retention(30);`
+  2. Keep schedule after rollup (recommended +5 minutes).
+  3. Run function manually once and confirm deleted row count is as expected.
 
 ### 3.2 Enabling / disabling polling for specific events
 
@@ -248,6 +249,30 @@ For **local scripts**:
 
 ---
 
+### 3.5 Daily maintenance sequence (rollup -> retention)
+
+**Goal:** ensure daily aggregation happens before hourly cleanup.
+
+**Current cron order:**
+
+1. `daily_rollup` at `10 1 * * *`
+   - `select public.rollup_hourly_to_daily();`
+2. `daily_retention` at `15 1 * * *`
+   - `select public.apply_ended_event_hourly_retention(7);`
+
+**Verify order and status:**
+
+```sql
+select jobname, schedule, command, active
+from cron.job
+where jobname in ('daily_rollup', 'daily_retention')
+order by schedule;
+```
+
+**Recommendation:** keep retention at least 5 minutes after rollup.
+
+---
+
 ## 4. How to make a safe config change (checklist)
 
 Use this when changing **any** of the above env‑level knobs:
@@ -285,9 +310,9 @@ Use this when changing **any** of the above env‑level knobs:
 - `TE_API_BASE_URL`:
   - **Dev/sandbox:** `https://api.sandbox.ticketevolution.com/v9`
   - **Prod target:** `https://api.ticketevolution.com/v9`
-- `HOURLY_RETENTION_DAYS_AFTER_END`:
-  - Default: `7`
-  - Meaning: For ended events, keep hourly data for 7 days after end, then prune.
+- `public.apply_ended_event_hourly_retention(<days>)`:
+  - Default argument: `7`
+  - Meaning: For ended events, keep hourly data for `<days>` after end, then prune.
 
 ---
 

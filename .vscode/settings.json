@@ -1,5 +1,5 @@
 {
-  "deno.enablePaths": ["supabase/functions", "test-poller-aligned.ts"],
+  "deno.enablePaths": ["supabase/functions", "tests", "test-poller-aligned.ts"],
   "deno.lint": true,
   "deno.unstable": [
     "bare-node-builtins",

@@ -2,15 +2,69 @@
 /**
  * Ticket Evolution performer-based event population script.
  *
- * Fetches TE Events/Index by performer_id and upserts events into Supabase.
- * Designed for World Cup bulk ingestion (target: 104 events).
+ * Fetches TE Events/Index by performer_id and writes to Supabase public.events.
+ * Designed for World Cup bulk ingestion (target: 104 events), and safe reruns.
  *
- * Usage:
+ * --------------------------------------------------------------------------
+ * Usage
+ * --------------------------------------------------------------------------
+ * Basic dry run (default mode):
  *   node scripts/populateEventsByPerformer.js
- *   node scripts/populateEventsByPerformer.js --dry_run=true
+ *
+ * Apply full upsert (insert new + update existing):
+ *   node scripts/populateEventsByPerformer.js --dry_run=false
+ *
+ * Apply incremental new-only insert (skip existing te_event_id rows):
+ *   node scripts/populateEventsByPerformer.js --dry_run=false --insert_only_new=true
+ *
+ * Explicit World Cup run with expected count check:
  *   node scripts/populateEventsByPerformer.js --dry_run=false --performer_id=15989 --expect_count=104
+ *
+ * Optional primary performer filtering:
  *   node scripts/populateEventsByPerformer.js --primary_performer=true
- *   node scripts/populateEventsByPerformer.js --insert_only_new=true --dry_run=false
+ *
+ * --------------------------------------------------------------------------
+ * Parameters
+ * --------------------------------------------------------------------------
+ * --performer_id=<number>
+ *   TE performer ID used to fetch events.
+ *   Default: 15989
+ *
+ * --per_page=<1..100>
+ *   Page size passed to TE Events index endpoint.
+ *   Default: 100
+ *
+ * --expect_count=<number>
+ *   Expected unique event count from source. Mismatch logs a warning only.
+ *   Does not block writes.
+ *   Default: 104
+ *
+ * --dry_run=<true|false>
+ *   true  = no DB writes; prints what would be written.
+ *   false = writes to DB using mode described by --insert_only_new.
+ *   Default: true
+ *
+ * --insert_only_new=<true|false>
+ *   false = upsert mode (insert + update) using conflict key te_event_id.
+ *   true  = insert only rows whose te_event_id does not already exist.
+ *   Default: false
+ *
+ * --primary_performer=<true|false>
+ *   Optional TE filter. When omitted, not sent to TE.
+ *   Use true to narrow results to events where the performer is primary.
+ *   Default: omitted
+ *
+ * --------------------------------------------------------------------------
+ * Environment variables
+ * --------------------------------------------------------------------------
+ * Required:
+ *   SUPABASE_URL
+ *   SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY)
+ *   TE_API_TOKEN
+ *   TE_API_SECRET
+ *
+ * Optional:
+ *   TE_API_BASE_URL (default: https://api.ticketevolution.com)
  */
 
 const crypto = require("crypto");

@@ -25,24 +25,27 @@ This checklist is for safely migrating TE polling from sandbox to production whi
     - `olt_url` auto-regenerates whenever `title` / `starts_at` / `ends_at` change or when `olt_url` is missing.
     - If required URL regeneration fails, mark the event as `status: "error"` and skip all updates for that event.
 
-- [ ] **Bulk-populate `events` table for all World Cup games (performer_id source)**
+- [x] **Bulk-populate `events` table for all World Cup games (performer_id source)**
   - Add/confirm ingestion path that fetches all events by TE `performer_id`
   - Upsert all expected World Cup games (target: 104 rows) with `te_event_id` uniqueness
   - Persist required fields for poller + embed: `title`, `starts_at`, `ends_at`, `polling_enabled`, `olt_url`
   - Add reconciliation check so reruns are safe and idempotent
+  - Script now supports `--insert_only_new=true` for future incremental adds without touching existing rows
 
-- [ ] **Schedule jobs clearly**
-  - Hourly poller: every hour
-  - Daily rollup RPC: daily
-  - Retention cleanup: daily (after rollup)
+- [x] **Schedule jobs clearly**
+  - Hourly poller: `0 * * * *` (`hourly_price_poller` via `net.http_post` -> `hourly-poller`)
+  - Daily rollup RPC: `10 1 * * *` (`daily_rollup` -> `select public.rollup_hourly_to_daily();`)
+  - Retention cleanup: `15 1 * * *` (`daily_retention` -> `select public.apply_ended_event_hourly_retention(7);`)
   - Metadata refresh: daily (or twice daily during tournament)
+  - Retention function and cron job applied via Supabase SQL Editor
 
 ## 2) Test Plan: Hourly Poller
 
-- [ ] **Test: skip disabled events**
+- [x] **Test: skip disabled events**
   - Seed events with mixed `polling_enabled`
   - Assert only enabled events are processed
   - Assert `poller_runs.events_total` matches filtered count
+  - Assert disabled events are filtered pre-processing (no `poller_run_events` row expected for disabled IDs)
 
 - [ ] **Test: skip ended events**
   - Seed rows with `ended_at` set and/or `ends_at` in past
