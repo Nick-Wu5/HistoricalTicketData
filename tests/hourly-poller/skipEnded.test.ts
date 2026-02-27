@@ -1,0 +1,78 @@
+import {
+  runHourlyPollerCore,
+  type SupabaseLike,
+  type TeClientLike,
+} from "../../supabase/functions/hourly-poller/core.ts";
+import { MockSupabase } from "../helpers/mockSupabase.ts";
+import { MockTeClient } from "../helpers/mockTeClient.ts";
+
+function assertEquals<T>(actual: T, expected: T) {
+  if (actual !== expected) {
+    throw new Error(`Assertion failed: expected ${expected}, got ${actual}`);
+  }
+}
+
+Deno.test("skip ended events", async () => {
+  const now = new Date("2026-06-12T01:23:45.000Z");
+  const frozenHourBucket = "2026-06-12T01:00:00.000Z";
+
+  const eventsSeed = [
+    {
+      te_event_id: 2795400,
+      title: "Ended via ended_at",
+      polling_enabled: true,
+      ends_at: "2026-06-13T00:00:00.000Z",
+      ended_at: "2026-06-10T00:00:00.000Z",
+      olt_url: null,
+    },
+    {
+      te_event_id: 2795401,
+      title: "Ended via ends_at in past",
+      polling_enabled: true,
+      ends_at: "2026-06-11T00:00:00.000Z",
+      ended_at: null,
+      olt_url: null,
+    },
+    {
+      te_event_id: 2795402,
+      title: "Active Event",
+      polling_enabled: true,
+      ends_at: "2026-06-13T00:00:00.000Z",
+      ended_at: null,
+      olt_url: null,
+    },
+  ];
+
+  const supabase = new MockSupabase(eventsSeed);
+  const teClient = new MockTeClient();
+
+  const result = await runHourlyPollerCore({
+    supabase: supabase as unknown as SupabaseLike,
+    teClient: teClient as unknown as TeClientLike,
+    now,
+    hourBucket: frozenHourBucket,
+    startTimeMs: now.getTime(),
+  });
+
+  assertEquals(result.events_total, 1);
+  assertEquals(result.hour_bucket, frozenHourBucket);
+  assertEquals(teClient.calls.length, 1);
+  assertEquals(teClient.calls[0].params.event_id, "2795402");
+
+  const hourlyWriteIds = supabase.eventPriceHourlyUpserts.map((r) =>
+    r.te_event_id
+  );
+  assertEquals(hourlyWriteIds.includes(2795400), false);
+  assertEquals(hourlyWriteIds.includes(2795401), false);
+  assertEquals(hourlyWriteIds.includes(2795402), true);
+
+  const runEventIds = supabase.pollerRunEventsUpserts.map((r) => r.te_event_id);
+  assertEquals(runEventIds.includes(2795400), false);
+  assertEquals(runEventIds.includes(2795401), false);
+  assertEquals(runEventIds.includes(2795402), true);
+
+  const eventsTotalUpdate = supabase.pollerRunsUpdates.find((u) =>
+    typeof u.events_total === "number"
+  );
+  assertEquals(eventsTotalUpdate?.events_total, 1);
+});

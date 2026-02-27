@@ -47,29 +47,47 @@ This checklist is for safely migrating TE polling from sandbox to production whi
   - Assert `poller_runs.events_total` matches filtered count
   - Assert disabled events are filtered pre-processing (no `poller_run_events` row expected for disabled IDs)
 
-- [ ] **Test: skip ended events**
+- [x] **Test: skip ended events**
   - Seed rows with `ended_at` set and/or `ends_at` in past
   - Assert no new hourly writes for ended events
   - Assert per-event logs show skipped/not processed behavior
 
-- [ ] **Test: succeeded/failed/skipped accounting**
+- [x] **Test: succeeded/failed/skipped accounting**
   - Mock TE responses:
     - valid listings => succeeded
     - no eligible listings => skipped
     - error/timeout => failed
   - Assert `poller_run_events` statuses and `poller_runs` aggregate counters
 
-- [ ] **Test: stale lock recovery**
+- [x] **Test: stale lock recovery**
   - Seed stale `poller_runs` row (`finished_at = null`, old `started_at`)
   - Assert poller reclaims and proceeds
   - Seed fresh running row and assert `already_running`
   - Seed finished row and assert `already_ran`
 
-- [ ] **Test: retry behavior**
+- [x] **Test: retry behavior**
   - TE mock returns 503/429 then success
   - Assert eventual success and no duplicate writes
 
+- [ ] **Test: previous hour comparison and price-change warning**
+  - Add at least one test that exercises the "previous hour comparison" and price-change warning path
+  - Mock `event_price_hourly.maybeSingle()` to return prior-hour data; assert behavior when prices change vs stay same
+
+- [ ] **Test: aggregatePrices unit tests**
+  - Empty array
+  - `ticket_groups` vs `listings` response shape
+  - Ineligible listings: bad notes, qty < 2, invalid price
+  - Multiple eligible listings => verify min/avg/max
+
+- [ ] **Test: integration lock (Supabase)**
+  - Use `createSupabaseLockAdapter` against Supabase (local or test project) with seeded `poller_runs` rows
+  - Run: `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... deno test --allow-env --allow-net tests/integration/lock.integration.test.ts`
+
 ## 3) Test Plan: Metadata Maintenance
+
+- [x] **Test: metadata refresh (update changed title/time, olt_url rules, ended toggle)**
+  - Uses `runRefreshMetadataCore` with mocks
+  - Covers: update changed title/time, olt_url unchanged when matching, olt_url when missing, ended event => polling_enabled false
 
 - [ ] **Test: insert new event from TE**
   - Assert initial fields (`title`, `starts_at`, `ends_at`, `polling_enabled`)

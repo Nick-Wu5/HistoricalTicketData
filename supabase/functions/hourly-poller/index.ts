@@ -11,6 +11,10 @@ import {
   type SupabaseLike,
   type TeClientLike,
 } from "./core.ts";
+import {
+  acquireLockOrSkip,
+  createSupabaseLockAdapter,
+} from "./lock.ts";
 
 // --- Configuration ---
 const BATCH_SIZE = 10; // Events processed concurrently per batch
@@ -462,107 +466,30 @@ Deno.serve(async (_req) => {
     const supabase = createClient<Database>(supabaseUrl, supabaseKey);
     const teClient = new TicketEvolutionClient(teToken, teSecret, teBaseUrl);
 
-    // Step 1: Acquire hourly lock (poller_runs)
-    // Canonical pattern (Supabase JS): INSERT and treat unique-violation as "already running/ran".
-    // Any non-conflict DB error is fatal. "Already ran" is only returned when the existing row is finished.
     const jsonHeaders = { "Content-Type": "application/json" };
+    const lockAdapter = createSupabaseLockAdapter(supabase);
+    const lockResult = await acquireLockOrSkip(lockAdapter, hourBucket, {
+      batchSize: BATCH_SIZE,
+    });
 
-    const newPollerRunRecord = {
-      hour_bucket: hourBucket,
-      status: "started",
-      batch_size: BATCH_SIZE,
-      events_processed: 0,
-    } satisfies TablesInsert<"poller_runs">;
-
-    const { error: lockAcquireError } = await supabase
-      .from("poller_runs")
-      .insert(newPollerRunRecord);
-
-    if (lockAcquireError) {
-      // Deterministic conflict detection: unique violation on hour_bucket
-      const isConflict = lockAcquireError.code === "23505";
-      if (!isConflict) {
-        throw new Error(`Failed to acquire lock: ${lockAcquireError.message}`);
-      }
-
-      // True conflict: row already exists for this hour bucket.
-      const { data: existingRun, error: readExistingErr } = await supabase
-        .from("poller_runs")
-        .select("hour_bucket, started_at, finished_at")
-        .eq("hour_bucket", hourBucket)
-        .maybeSingle();
-
-      if (readExistingErr) {
-        throw new Error(
-          `Failed to read existing run row: ${readExistingErr.message}`,
+    if (!lockResult.acquired) {
+      if (lockResult.reason === "already_ran") {
+        console.log(`Skipped: already ran for hour bucket ${hourBucket}`);
+      } else {
+        console.log(
+          `Skipped: already running for hour bucket ${hourBucket}`,
         );
       }
-      if (!existingRun) {
-        throw new Error(
-          `Lock conflict but run row missing for hour bucket ${hourBucket}`,
-        );
-      }
-
-      // If the run is already finished, it truly already ran.
-      if (existingRun.finished_at) {
-        return new Response(
-          JSON.stringify({
-            status: "skipped",
-            reason: "already_ran",
-            hour_bucket: hourBucket,
-          }),
-          { status: 200, headers: jsonHeaders },
-        );
-      }
-
-      // Minimal stale-lock recovery:
-      // if unfinished AND started_at < now - 15 minutes, mark stale + reclaim the lock.
-      const staleCutoffIso = new Date(Date.now() - 15 * 60 * 1000)
-        .toISOString();
-      const nowIso = new Date().toISOString();
-
-      const { data: recoveredRows, error: recoverErr } = await supabase
-        .from("poller_runs")
-        .update(
-          {
-            // Mark the previous in-flight attempt as stale/failed, but keep finished_at NULL
-            // so a future invocation can recover again if this run dies too.
-            status: "failed",
-            error_sample: "stale_lock_timeout",
-            started_at: nowIso,
-            batch_size: BATCH_SIZE,
-            events_processed: 0,
-          } satisfies TablesUpdate<"poller_runs">,
-        )
-        .eq("hour_bucket", hourBucket)
-        .is("finished_at", null)
-        .lt("started_at", staleCutoffIso)
-        .select("hour_bucket");
-
-      if (recoverErr) {
-        throw new Error(`Failed stale-lock recovery: ${recoverErr.message}`);
-      }
-
-      const didRecoverStaleLock = Array.isArray(recoveredRows) &&
-        recoveredRows.length > 0 &&
-        recoveredRows[0]?.hour_bucket === hourBucket;
-
-      if (!didRecoverStaleLock) {
-        // Not stale: another invocation is still running (or just started).
-        return new Response(
-          JSON.stringify({
-            status: "skipped",
-            reason: "already_running",
-            hour_bucket: hourBucket,
-          }),
-          { status: 200, headers: jsonHeaders },
-        );
-      }
-
-      console.log(`Recovered stale lock for hour bucket: ${hourBucket}`);
+      return new Response(
+        JSON.stringify({
+          status: "skipped",
+          reason: lockResult.reason,
+          hour_bucket: lockResult.hour_bucket,
+        }),
+        { status: 200, headers: jsonHeaders },
+      );
     }
 
-    // Insert succeeded => we acquired the lock
     console.log(`Acquired lock for hour bucket: ${hourBucket}`);
 
     const summary = await runHourlyPollerCore({

@@ -2,9 +2,9 @@ import {
   runHourlyPollerCore,
   type SupabaseLike,
   type TeClientLike,
-} from "../supabase/functions/hourly-poller/core.ts";
-import { MockSupabase } from "./helpers/mockSupabase.ts";
-import { MockTeClient } from "./helpers/mockTeClient.ts";
+} from "../../supabase/functions/hourly-poller/core.ts";
+import { MockSupabase } from "../helpers/mockSupabase.ts";
+import { MockTeClient } from "../helpers/mockTeClient.ts";
 
 function assertEquals<T>(actual: T, expected: T) {
   if (actual !== expected) {
@@ -46,27 +46,21 @@ Deno.test("skip disabled events", async () => {
     startTimeMs: now.getTime(),
   });
 
-  // Enabled-only filtering should drive the poller workload size.
   assertEquals(result.events_total, 1);
   assertEquals(result.hour_bucket, frozenHourBucket);
-
-  // TE should never be called for disabled events.
   assertEquals(teClient.calls.length, 1);
   assertEquals(teClient.calls[0].params.event_id, "2795401");
 
-  // Hourly writes should only happen for enabled events.
   const hourlyWriteIds = supabase.eventPriceHourlyUpserts.map((r) =>
     r.te_event_id
   );
   assertEquals(hourlyWriteIds.includes(2795400), false);
   assertEquals(hourlyWriteIds.includes(2795401), true);
 
-  // Current behavior: disabled events are filtered out before per-event logging.
   const runEventIds = supabase.pollerRunEventsUpserts.map((r) => r.te_event_id);
   assertEquals(runEventIds.includes(2795400), false);
   assertEquals(runEventIds.includes(2795401), true);
 
-  // poller_runs counters should reflect filtered events only.
   const eventsTotalUpdate = supabase.pollerRunsUpdates.find((u) =>
     typeof u.events_total === "number"
   );

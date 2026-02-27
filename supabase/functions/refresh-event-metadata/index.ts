@@ -1,32 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database, TablesUpdate } from "../../database.types.ts";
 import { TicketEvolutionClient } from "@shared/te-api.ts";
-import { buildOltEventUrl, type TeEvent } from "@shared/olt-url.ts";
+import {
+  runRefreshMetadataCore,
+  type ExistingEventRow,
+} from "./core.ts";
 
 const MAX_RETRIES = 3;
-const EVENT_DURATION_HOURS = 4;
 
 type RefreshRequest = {
   event_id?: number;
   te_event_ids?: number[];
   dry_run?: boolean;
-};
-
-type ExistingEventRow = {
-  te_event_id: number;
-  title: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  ended_at: string | null;
-  polling_enabled: boolean;
-  olt_url: string | null;
-};
-
-type RefreshResult = {
-  te_event_id: number;
-  status: "updated" | "unchanged" | "error";
-  changes?: string[];
-  error?: string;
 };
 
 async function withRetry<T>(
@@ -55,10 +40,6 @@ async function withRetry<T>(
     }
   }
   throw lastErr;
-}
-
-function asNullableString(value: unknown): string | null {
-  return value === null || value === undefined ? null : String(value);
 }
 
 Deno.serve(async (req) => {
@@ -102,6 +83,11 @@ Deno.serve(async (req) => {
     const supabase = createClient<Database>(supabaseUrl, supabaseKey);
     const teClient = new TicketEvolutionClient(teToken, teSecret, teBaseUrl);
 
+    const wrappedTeClient = {
+      get: (path: string) =>
+        withRetry(() => teClient.get(path) as Promise<unknown>, path),
+    };
+
     let eventsQuery = supabase
       .from("events")
       .select(
@@ -119,123 +105,35 @@ Deno.serve(async (req) => {
     }
 
     const rows = (existingEvents ?? []) as ExistingEventRow[];
-    const nowIso = new Date().toISOString();
-    const nowMs = Date.now();
-    const results: RefreshResult[] = [];
 
-    let updated = 0;
-    let unchanged = 0;
-    let errors = 0;
+    const updateEvents = async (
+      teEventId: number,
+      payload: TablesUpdate<"events">,
+    ) => {
+      const { error } = await supabase
+        .from("events")
+        .update(payload)
+        .eq("te_event_id", teEventId);
+      return { error };
+    };
 
-    for (const row of rows) {
-      const teEventId = row.te_event_id;
-      try {
-        const tePayload = await withRetry(
-          () => teClient.get(`/events/${teEventId}`),
-          String(teEventId),
-        );
-        const teEvent = (tePayload?.event ?? tePayload) as Record<
-          string,
-          unknown
-        >;
-
-        const title = asNullableString(teEvent?.name);
-        const startsAt = asNullableString(teEvent?.occurs_at);
-        if (!title || !startsAt) {
-          throw new Error("TE event missing required fields: name/occurs_at");
-        }
-
-        const startMs = new Date(startsAt).getTime();
-        if (Number.isNaN(startMs)) {
-          throw new Error(`Invalid occurs_at timestamp: ${startsAt}`);
-        }
-        const endsAt = new Date(startMs + EVENT_DURATION_HOURS * 60 * 60 * 1000)
-          .toISOString();
-        const hasEnded = nowMs > new Date(endsAt).getTime();
-
-        // Preserve manual disable for active events; auto-disable if ended.
-        const nextPollingEnabled = hasEnded ? false : row.polling_enabled;
-        // Never clear ended_at once set; set it when event first transitions to ended.
-        const nextEndedAt = row.ended_at ?? (hasEnded ? nowIso : null);
-
-        const titleChanged = row.title !== title;
-        const startsAtChanged = row.starts_at !== startsAt;
-        const endsAtChanged = row.ends_at !== endsAt;
-        const shouldRegenerateOltUrl = !row.olt_url ||
-          titleChanged ||
-          startsAtChanged ||
-          endsAtChanged;
-
-        let nextOltUrl = row.olt_url;
-        if (shouldRegenerateOltUrl) {
-          // Fail-closed policy:
-          // if URL regeneration is required and fails, mark this event as error
-          // and skip ALL updates for this event.
-          nextOltUrl = buildOltEventUrl(teEvent as TeEvent);
-        }
-
-        const changedFields: string[] = [];
-        if (titleChanged) changedFields.push("title");
-        if (startsAtChanged) changedFields.push("starts_at");
-        if (endsAtChanged) changedFields.push("ends_at");
-        if (row.polling_enabled !== nextPollingEnabled) {
-          changedFields.push("polling_enabled");
-        }
-        if (row.ended_at !== nextEndedAt) changedFields.push("ended_at");
-        if ((row.olt_url ?? null) !== (nextOltUrl ?? null)) {
-          changedFields.push("olt_url");
-        }
-
-        if (changedFields.length === 0) {
-          unchanged++;
-          results.push({ te_event_id: teEventId, status: "unchanged" });
-          continue;
-        }
-
-        if (!dryRun) {
-          const updatePayload = {
-            title,
-            starts_at: startsAt,
-            ends_at: endsAt,
-            polling_enabled: nextPollingEnabled,
-            ended_at: nextEndedAt,
-            olt_url: nextOltUrl,
-            updated_at: nowIso,
-          } satisfies TablesUpdate<"events">;
-
-          const { error: updateErr } = await supabase
-            .from("events")
-            .update(updatePayload)
-            .eq("te_event_id", teEventId);
-
-          if (updateErr) {
-            throw new Error(`Update failed: ${updateErr.message}`);
-          }
-        }
-
-        updated++;
-        results.push({
-          te_event_id: teEventId,
-          status: "updated",
-          changes: changedFields,
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        errors++;
-        results.push({ te_event_id: teEventId, status: "error", error: msg });
-      }
-    }
+    const outcome = await runRefreshMetadataCore({
+      existingRows: rows,
+      teClient: wrappedTeClient,
+      dryRun,
+      updateEvents,
+    });
 
     return new Response(
       JSON.stringify({
         status: "ok",
         mode: dryRun ? "dry_run" : "apply",
         requested_ids: requestedIds ?? "all",
-        scanned: rows.length,
-        updated,
-        unchanged,
-        errors,
-        results,
+        scanned: outcome.scanned,
+        updated: outcome.updated,
+        unchanged: outcome.unchanged,
+        errors: outcome.errors,
+        results: outcome.results,
       }),
       { status: 200, headers: jsonHeaders },
     );
@@ -247,4 +145,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-

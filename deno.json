@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "@shared/": "./supabase/functions/_shared/"
+  },
+  "tasks": {
+    "test": "deno test tests/hourly-poller/ tests/metadata/",
+    "test:integration": "deno test --allow-env --allow-net tests/integration/"
+  }
+}
