@@ -40,6 +40,14 @@
   --olt-success: #16a34a;
   --olt-link: #1f4fd6;
 
+  /* Semantic backgrounds (10% opacity variants) */
+  --olt-success-bg: rgba(22, 163, 74, 0.1);
+  --olt-danger-bg: rgba(220, 38, 38, 0.1);
+  --olt-warning-bg: rgba(245, 158, 11, 0.1);
+
+  /* Neutrals */
+  --olt-white: #ffffff;
+
   /* Radii (rounded corners) */
   --olt-radius-sm: 6px;
   --olt-radius-md: 10px;
@@ -61,6 +69,20 @@
   --olt-gridline: rgba(17, 24, 39, 0.08);
   --olt-tooltip-bg: #111827;
   --olt-tooltip-text: #ffffff;
+
+  /* Monochrome scale (based on OLT Navy #203040) */
+  --olt-mono-900: #203040; /* Primary: chart line, stat values */
+  --olt-mono-700: #3d4f5f; /* Secondary emphasis */
+  --olt-mono-500: #5a6e7e; /* Tertiary elements */
+  --olt-mono-300: #9ca8b3; /* Muted: inactive toggles */
+  --olt-mono-100: #e8eaed; /* Gridlines, light borders */
+  --olt-mono-50: #f5f6f7; /* Stat card backgrounds */
+
+  /* Chart line colors (monochrome with opacity variations) */
+  --olt-chart-line: #203040;
+  --olt-chart-line-min: rgba(32, 48, 64, 0.4); /* 40% opacity */
+  --olt-chart-line-avg: rgba(32, 48, 64, 1); /* 100% opacity */
+  --olt-chart-line-max: rgba(32, 48, 64, 0.6); /* 60% opacity */
 }
 
 /* Dark theme variant (optional, for future use) */

@@ -27,11 +27,12 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
 
   const dataKey = metricToKey[metric] || metricToKey.avg;
 
-  // Map metric to color (OLT tokens)
+  // Monochrome chart colors - single base color with opacity variations
+  // Creates calm, analytical aesthetic; distinguishes lines without competing colors
   const metricColors = {
-    min: "#999999", // gray
-    avg: "#203040", // navy-900
-    max: "#70b060", // green-500
+    min: "rgba(32, 48, 64, 0.4)", // 40% opacity - subtle
+    avg: "rgba(32, 48, 64, 1)", // 100% opacity - primary
+    max: "rgba(32, 48, 64, 0.6)", // 60% opacity - secondary
   };
 
   const lineColor = metricColors[metric] || metricColors.avg;

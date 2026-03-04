@@ -105,7 +105,9 @@ async function fetchEventMetadata(teEventId) {
 
   const { data, error } = await supabase
     .from("events")
-    .select("te_event_id, title, olt_url, ends_at, ended_at, polling_enabled")
+    .select(
+      "te_event_id, title, olt_url, starts_at, ends_at, ended_at, polling_enabled",
+    )
     .eq("te_event_id", teEventId)
     .single();
 
@@ -254,6 +256,7 @@ function generateMockEvent(eventId) {
       typeof eventId === "number" ? eventId : parseInt(eventId, 10) || 12345,
     title: "Lakers vs Celtics",
     olt_url: "https://onlylocaltickets.com/events/lakers-celtics",
+    starts_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     ended_at: null,
     polling_enabled: true,

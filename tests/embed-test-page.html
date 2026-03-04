@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Historical Ticket Pricing Widget - Test Page</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+        background: #f9fafb;
+        padding: 40px 20px;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: #111827;
+        margin-bottom: 40px;
+        font-size: 28px;
+      }
+
+      .test-section {
+        margin-bottom: 60px;
+      }
+
+      .test-section h2 {
+        color: #203040;
+        font-size: 20px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e6e8ee;
+        padding-bottom: 10px;
+      }
+
+      .widget-container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border: 1px solid #e6e8ee;
+      }
+
+      .note {
+        background: #fffbeb;
+        border: 1px solid #fed7aa;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #92400e;
+        margin-bottom: 20px;
+      }
+
+      .code {
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        padding: 12px;
+        border-radius: 6px;
+        font-family: "Monaco", "Courier New", monospace;
+        font-size: 12px;
+        overflow-x: auto;
+        margin-bottom: 20px;
+      }
+
+      .footer {
+        border-top: 1px solid #e6e8ee;
+        padding-top: 20px;
+        margin-top: 40px;
+        color: #6b7280;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📊 Historical Ticket Pricing Widget - Integration Test</h1>
+
+      <div class="note">
+        <strong>Test Setup:</strong> This page tests the Step 1 bootstrap
+        system. It should automatically detect and mount widgets on this page.
+        Open the browser console (F12) to see mount events and any errors.
+      </div>
+
+      <!-- Test 1: Simple single widget -->
+      <div class="test-section">
+        <h2>Test 1: Single Widget Mount</h2>
+        <p style="margin-bottom: 10px">
+          A widget with
+          <code style="background: #f3f4f6; padding: 2px 6px"
+            >data-event-id="te_single_test"</code
+          >
+          should auto-initialize on this page.
+        </p>
+        <div class="widget-container">
+          <div data-event-id="te_single_test" data-theme="light"></div>
+        </div>
+        <div class="code">
+          &lt;div data-event-id="te_single_test"
+          data-theme="light"&gt;&lt;/div&gt;
+        </div>
+      </div>
+
+      <!-- Test 2: Multiple widgets -->
+      <div class="test-section">
+        <h2>Test 2: Multiple Widgets on Same Page</h2>
+        <p style="margin-bottom: 10px">
+          Multiple widgets should mount independently and maintain isolated
+          state.
+        </p>
+        <div class="widget-container">
+          <h3 style="margin-bottom: 15px; color: #374151; font-size: 14px">
+            Widget A
+          </h3>
+          <div data-event-id="te_widget_a" data-theme="light"></div>
+        </div>
+        <div class="widget-container">
+          <h3 style="margin-bottom: 15px; color: #374151; font-size: 14px">
+            Widget B
+          </h3>
+          <div data-event-id="te_widget_b" data-theme="light"></div>
+        </div>
+      </div>
+
+      <!-- Test 3: With custom API base -->
+      <div class="test-section">
+        <h2>Test 3: Custom API Base URL</h2>
+        <p style="margin-bottom: 10px">
+          This widget specifies a custom
+          <code style="background: #f3f4f6; padding: 2px 6px"
+            >data-base-url</code
+          >. (In Step 2, this will be passed to the API client.)
+        </p>
+        <div class="widget-container">
+          <div
+            data-event-id="te_custom_api"
+            data-base-url="https://api.example.com/v1"
+            data-theme="light"
+          ></div>
+        </div>
+        <div class="code">
+          &lt;div data-event-id="te_custom_api"
+          data-base-url="https://api.example.com/v1"&gt;&lt;/div&gt;
+        </div>
+      </div>
+
+      <!-- Test 4: Programmatic mount (manual) -->
+      <div class="test-section">
+        <h2>Test 4: Programmatic Mount (Manual)</h2>
+        <p style="margin-bottom: 10px">
+          The window.TicketWidget API allows manual mounting. Click the button
+          below to mount a widget programmatically.
+        </p>
+        <button
+          id="manual-mount-btn"
+          style="
+            padding: 10px 14px;
+            background: #203040;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+          "
+        >
+          Mount Widget Programmatically
+        </button>
+        <div
+          id="manual-mount-target"
+          class="widget-container"
+          style="margin-top: 15px; display: none"
+        >
+          <p style="margin-bottom: 10px; color: #6b7280; font-size: 14px">
+            Widget mounted via TicketWidget.mount():
+          </p>
+          <div id="manual-widget"></div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>
+          <strong>Step 1 Bootstrap Implementation:</strong> This test page
+          validates the embed mount system. Widgets should render with skeleton
+          loaders initially, then show live pricing data.
+        </p>
+        <p style="margin-top: 10px">
+          Check the browser console for any errors. Expected: no errors, clean
+          mount on each widget.
+        </p>
+      </div>
+    </div>
+
+    <!-- 
+    The embed script (ticket-embed.js) should be loaded here.
+    During development, it's available at http://localhost:5173/dist/ticket-embed.js (after `npm run build`)
+    In production, it would be at https://pricing.onlylocaltickets.com/ticket-embed.js
+  -->
+    <script src="http://localhost:5173/@vite/client"></script>
+    <script type="module">
+      import("./src/main.jsx");
+    </script>
+
+    <!-- Fallback: If using built version, uncomment below and comment above -->
+    <!-- <script src="/dist/ticket-embed.js"></script> -->
+
+    <script>
+      // Test manual mount functionality
+      document
+        .getElementById("manual-mount-btn")
+        .addEventListener("click", function () {
+          const target = document.getElementById("manual-widget");
+          const container = document.getElementById("manual-mount-target");
+
+          if (window.TicketWidget && window.TicketWidget.mount) {
+            container.style.display = "block";
+            window.TicketWidget.mount(target, { eventId: "te_manual_mount" });
+          } else {
+            alert(
+              "TicketWidget not yet loaded. Wait for the script to finish loading.",
+            );
+          }
+        });
+
+      // Log mount events to console
+      console.log("=== Historical Ticket Pricing Embed - Test Page ===");
+      console.log("Waiting for widgets to initialize...");
+      console.log("Check window.TicketWidget for the public API.");
+
+      // Monitor when TicketWidget becomes available
+      let checkCount = 0;
+      const checkInterval = setInterval(() => {
+        if (window.TicketWidget) {
+          console.log("✓ TicketWidget API is ready");
+          console.log("Available methods:", Object.keys(window.TicketWidget));
+          clearInterval(checkInterval);
+        }
+        checkCount++;
+        if (checkCount > 100) {
+          console.warn("✗ TicketWidget did not initialize after 10 seconds");
+          clearInterval(checkInterval);
+        }
+      }, 100);
+    </script>
+  </body>
+</html>

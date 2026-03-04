@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PriceChart from "./components/PriceChart";
+import PriceStats from "./components/PriceStats";
 import { fetchWidgetData } from "./api/client";
 
 function App({ config }) {
@@ -78,39 +79,18 @@ function App({ config }) {
     };
   }, [config.eventId, timeRange, metric, eventEnded]);
 
-  // Format price
-  const formatPrice = (value) => {
-    if (value == null) return "—";
-    return `$${Math.round(value).toLocaleString()}`;
-  };
-
   // Format 24h change
-  const format24hChange = (value) => {
-    if (value == null)
-      return { text: "—", className: "olt-kpi-value--neutral" };
-    const isDown = value < 0;
-    const isUp = value > 0;
-    const arrow = isDown ? "▼" : isUp ? "▲" : "";
-    const sign = isUp ? "+" : "";
-    const className = isDown
-      ? "olt-kpi-value--down-good"
-      : isUp
-        ? "olt-kpi-value--up-bad"
-        : "olt-kpi-value--neutral";
-    return {
-      text: `${arrow}${sign}${value.toFixed(1)}%`,
-      className,
-    };
+  const formatChange = (value) => {
+    if (value == null) return null;
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${value.toFixed(1)}%`;
   };
 
   // Loading state
   if (loading && !currentData) {
     return (
-      <div className="olt-pricing-embed theme-light">
-        <div className="olt-loading">
-          <div className="olt-spinner"></div>
-          <p>Loading pricing data...</p>
-        </div>
+      <div className="olt-pricing-embed">
+        <div className="olt-skeleton olt-skeleton-chart" />
       </div>
     );
   }
@@ -118,144 +98,141 @@ function App({ config }) {
   // Error state
   if (error && !currentData) {
     return (
-      <div className="olt-pricing-embed theme-light">
+      <div className="olt-pricing-embed">
         <div className="olt-error">
-          <span className="olt-error-icon">⚠️</span>
-          <p className="olt-error-message">{error}</p>
-          <button
-            className="olt-btn-retry"
-            onClick={() => window.location.reload()}
-          >
-            Retry
-          </button>
+          Unable to load pricing data.{" "}
+          <a href={`https://onlylocaltickets.com/events/${config.eventId}`}>
+            View tickets
+          </a>
         </div>
       </div>
     );
   }
 
-  const change24h = format24hChange(currentData?.change_24h);
   const eventUrl =
     currentData?.olt_url ||
     `https://onlylocaltickets.com/events/${config.eventId}`;
   const eventTitle = currentData?.title || "Event";
+  const changeValue = formatChange(currentData?.change_24h);
+  const isPositiveChange = currentData?.change_24h >= 0;
 
-  // View Tickets button component (reused in header and mobile)
-  const ViewTicketsButton = ({ className = "" }) => (
-    <a
-      href={eventUrl}
-      className={`olt-btn-primary ${className}`}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      View Tickets
-    </a>
-  );
+  // Format event date/time for subtitle
+  const formatEventDate = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+  const eventDateTime = formatEventDate(currentData?.starts_at);
 
   return (
     <div className={`olt-pricing-embed theme-${config.theme || "light"}`}>
-      {/* Event Header */}
-      <div className="olt-event-header">
-        <div className="olt-event-title-block">
-          <h3 className="olt-event-title">
+      {/* HEADER */}
+      <header className="olt-header">
+        <div className="olt-header-left">
+          <h2 className="olt-title">
             <a href={eventUrl} target="_blank" rel="noopener noreferrer">
               {eventTitle}
             </a>
-          </h3>
-          <p className="olt-event-subtitle">Powered by OnlyLocalTickets</p>
+          </h2>
+          {eventDateTime && (
+            <span className="olt-subtitle">{eventDateTime}</span>
+          )}
         </div>
-        {/* Desktop CTA - hidden on mobile via CSS */}
-        <div className="olt-header-cta">
-          <ViewTicketsButton />
-        </div>
-      </div>
 
-      {/* Stats Bar */}
-      <div className="olt-stats-bar">
-        <div className="olt-stat">
-          <span className="olt-stat-label">Min</span>
-          <span className="olt-stat-value olt-stat-value--price">
-            {formatPrice(currentData?.min_price)}
-          </span>
+        <div className="olt-header-right">
+          {changeValue && (
+            <span
+              className={`olt-change ${isPositiveChange ? "olt-change--up" : "olt-change--down"}`}
+            >
+              <span className="olt-change-arrow">
+                {isPositiveChange ? "↑" : "↓"}
+              </span>
+              {changeValue}
+              <span className="olt-change-label">24h</span>
+            </span>
+          )}
+          <a
+            href={eventUrl}
+            className="olt-btn-primary olt-header-cta"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            VIEW TICKETS
+          </a>
         </div>
-        <div className="olt-stat">
-          <span className="olt-stat-label">Avg</span>
-          <span className="olt-stat-value olt-stat-value--price">
-            {formatPrice(currentData?.avg_price)}
-          </span>
-        </div>
-        <div className="olt-stat">
-          <span className="olt-stat-label">Max</span>
-          <span className="olt-stat-value olt-stat-value--price">
-            {formatPrice(currentData?.max_price)}
-          </span>
-        </div>
-        <div className="olt-stat olt-stat--change">
-          <span className="olt-stat-label">24h</span>
-          <span className={`olt-stat-value ${change24h.className}`}>
-            {change24h.text}
-          </span>
-        </div>
-      </div>
+      </header>
 
-      {/* Controls */}
-      <div className="olt-controls">
-        <div className="olt-control-group">
-          <span className="olt-control-group-label">Price:</span>
-          <div className="olt-tabs" role="tablist" aria-label="Price metric">
+      {/* STATUS BAR */}
+      <div className="olt-status-bar">
+        <PriceStats
+          min={currentData?.min_price}
+          avg={currentData?.avg_price}
+          max={currentData?.max_price}
+        />
+
+        <div className="olt-controls">
+          {/* Price Type Toggle */}
+          <div className="olt-toggle-group">
             {["min", "avg", "max"].map((m) => (
               <button
                 key={m}
-                className="olt-tab"
-                role="tab"
-                aria-selected={metric === m}
+                className={`olt-toggle ${metric === m ? "olt-toggle--active" : ""}`}
                 onClick={() => setMetric(m)}
+                aria-pressed={metric === m}
               >
                 {m.charAt(0).toUpperCase() + m.slice(1)}
               </button>
             ))}
           </div>
-        </div>
-        <div className="olt-control-group">
-          <span className="olt-control-group-label">Range:</span>
-          <div className="olt-tabs" role="tablist" aria-label="Time range">
-            <button
-              className="olt-tab"
-              role="tab"
-              aria-selected={timeRange === "3day"}
-              onClick={() => setTimeRange("3day")}
-            >
-              3 Days
-            </button>
-            <button
-              className="olt-tab"
-              role="tab"
-              aria-selected={timeRange === "alltime"}
-              onClick={() => setTimeRange("alltime")}
-            >
-              All Time
-            </button>
+
+          {/* Date Range Toggle */}
+          <div className="olt-toggle-group">
+            {[
+              { value: "3day", label: "3D" },
+              { value: "alltime", label: "All" },
+            ].map((range) => (
+              <button
+                key={range.value}
+                className={`olt-toggle ${timeRange === range.value ? "olt-toggle--active" : ""}`}
+                onClick={() => setTimeRange(range.value)}
+                aria-pressed={timeRange === range.value}
+              >
+                {range.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Chart */}
+      {/* CHART */}
       <div className="olt-chart">
-        <div className="olt-chart-wrapper">
-          <PriceChart data={chartData} metric={metric} timeRange={timeRange} />
-        </div>
+        <PriceChart data={chartData} metric={metric} timeRange={timeRange} />
       </div>
 
-      {/* Mobile CTA - shown only on mobile, below chart */}
+      {/* MOBILE CTA */}
       <div className="olt-mobile-cta">
-        <ViewTicketsButton />
+        <a
+          href={eventUrl}
+          className="olt-btn-primary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          VIEW TICKETS
+        </a>
       </div>
 
-      {/* Footer */}
-      <div className="olt-embed-footer">
-        <p className="olt-embed-timestamp">
+      {/* FOOTER */}
+      <footer className="olt-footer">
+        <span className="olt-timestamp">
           Updated {new Date().toLocaleTimeString()}
-        </p>
-      </div>
+        </span>
+      </footer>
 
       {/* Event ended overlay */}
       {eventEnded && (
