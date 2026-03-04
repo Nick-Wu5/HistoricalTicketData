@@ -1,0 +1,75 @@
+/**
+ * Historical Ticket Pricing Embed — Style Tokens
+ *
+ * CSS custom properties (variables) derived from docs/style.md.
+ * These are scoped to the widget's Shadow DOM root and do not pollute the host page.
+ *
+ * Naming convention: --olt-[category]-[shade]
+ * Examples: --olt-navy-900, --olt-text-2, --olt-radius-md
+ */
+
+:host {
+  --olt-font-sans:
+    system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial",
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+
+  --olt-font-mono:
+    ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas",
+    "Liberation Mono", "Courier New", monospace;
+
+  /* Core colors (brand palette) */
+  --olt-navy-900: #203040;
+  --olt-navy-800: #203060;
+  --olt-blue-500: #50a0d0;
+  --olt-green-500: #70b060;
+
+  /* Surface colors */
+  --olt-bg: #ffffff;
+  --olt-surface: #ffffff;
+  --olt-surface-2: #f7f8fa;
+
+  /* Text colors */
+  --olt-text: #111827;
+  --olt-text-2: #4b5563;
+  --olt-muted: #6b7280;
+  --olt-border: #e6e8ee;
+
+  /* Semantic colors */
+  --olt-danger: #dc2626;
+  --olt-warning: #f59e0b;
+  --olt-success: #16a34a;
+  --olt-link: #1f4fd6;
+
+  /* Radii (rounded corners) */
+  --olt-radius-sm: 6px;
+  --olt-radius-md: 10px;
+  --olt-radius-lg: 14px;
+
+  /* Shadows */
+  --olt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --olt-shadow-md: 0 2px 10px rgba(0, 0, 0, 0.08);
+
+  /* Spacing scale (4px base) */
+  --olt-1: 4px;
+  --olt-2: 8px;
+  --olt-3: 12px;
+  --olt-4: 16px;
+  --olt-5: 20px;
+  --olt-6: 24px;
+
+  /* Chart-specific colors */
+  --olt-gridline: rgba(17, 24, 39, 0.08);
+  --olt-tooltip-bg: #111827;
+  --olt-tooltip-text: #ffffff;
+}
+
+/* Dark theme variant (optional, for future use) */
+:host(.theme-dark) {
+  --olt-bg: #1a1a1a;
+  --olt-surface: #1a1a1a;
+  --olt-surface-2: #2a2a2a;
+  --olt-text: #ffffff;
+  --olt-text-2: #e5e5e5;
+  --olt-muted: #999999;
+  --olt-border: #404040;
+}

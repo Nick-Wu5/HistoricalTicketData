@@ -1,0 +1,713 @@
+/**
+ * Historical Ticket Pricing Embed — Component Styles
+ *
+ * All styles are scoped to the widget root (.olt-pricing-embed).
+ * This ensures zero CSS collision with the host page.
+ */
+
+/* ============================================
+   ROOT & LAYOUT
+   ============================================ */
+
+.olt-pricing-embed {
+  /* Reset to ensure consistent baseline */
+  box-sizing: border-box;
+  font-family: var(--olt-font-sans);
+  color: var(--olt-text);
+  background: var(--olt-surface);
+
+  /* Widget container */
+  display: flex;
+  flex-direction: column;
+  gap: var(--olt-4);
+  border: 1px solid var(--olt-border);
+  border-radius: var(--olt-radius-md);
+  box-shadow: var(--olt-shadow-sm);
+  padding: var(--olt-5);
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.olt-pricing-embed * {
+  box-sizing: border-box;
+}
+
+.olt-pricing-embed a {
+  color: var(--olt-link);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.olt-pricing-embed a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.olt-embed-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--olt-2);
+}
+
+.olt-embed-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+  margin: 0;
+  color: var(--olt-text);
+}
+
+.olt-embed-title a {
+  color: var(--olt-link);
+}
+
+.olt-embed-subtitle {
+  font-size: 13px;
+  color: var(--olt-text-2);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Event header with CTA button */
+.olt-event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--olt-3);
+  flex-wrap: wrap;
+}
+
+.olt-event-title-block {
+  flex: 1;
+  min-width: 200px;
+}
+
+.olt-event-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  margin: 0 0 var(--olt-1) 0;
+  line-height: 1.2;
+}
+
+.olt-event-title a {
+  color: var(--olt-link);
+}
+
+.olt-event-title a:hover {
+  text-decoration: underline;
+}
+
+.olt-event-subtitle {
+  font-size: 12px;
+  color: var(--olt-text-2);
+  margin: 0;
+}
+
+/* ============================================
+   STATS BAR (compact pills - NO nested cards)
+   ============================================ */
+
+.olt-stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--olt-3);
+  padding: var(--olt-3) 0;
+  border-top: 1px solid var(--olt-border);
+}
+
+.olt-stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--olt-1);
+}
+
+.olt-stat-label {
+  font-size: 11px;
+  color: var(--olt-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.olt-stat-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--olt-text);
+  line-height: 1;
+}
+
+.olt-stat-value--price {
+  color: var(--olt-green-500);
+}
+
+.olt-stat--change {
+  margin-left: auto;
+}
+
+/* Legacy KPI classes (backwards compat) */
+.olt-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--olt-3);
+  padding: var(--olt-3) 0;
+  border-top: 1px solid var(--olt-border);
+}
+
+.olt-kpi {
+  display: flex;
+  align-items: baseline;
+  gap: var(--olt-1);
+}
+
+.olt-kpi-label {
+  font-size: 11px;
+  color: var(--olt-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.olt-kpi-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--olt-text);
+  line-height: 1;
+}
+
+.olt-kpi-value--price {
+  color: var(--olt-green-500);
+}
+
+/* 24h change colors - from buyer's perspective */
+/* Price DROP = good for buyers = GREEN */
+.olt-kpi-value--down-good {
+  color: var(--olt-success);
+}
+
+/* Price RISE = bad for buyers = RED */
+.olt-kpi-value--up-bad {
+  color: var(--olt-danger);
+}
+
+/* Legacy classes (for backwards compat) */
+.olt-kpi-value--up {
+  color: var(--olt-success);
+}
+
+.olt-kpi-value--down {
+  color: var(--olt-danger);
+}
+
+.olt-kpi-change-indicator {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 700;
+}
+
+.olt-kpi-change-arrow {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* Stats bar: wrap on mobile */
+@media (max-width: 480px) {
+  .olt-stats-bar,
+  .olt-kpis {
+    gap: var(--olt-2);
+  }
+
+  .olt-stat--change,
+  .olt-kpi:last-child {
+    margin-left: 0;
+    width: 100%;
+    padding-top: var(--olt-2);
+    border-top: 1px solid var(--olt-border);
+  }
+}
+
+/* ============================================
+   TOGGLES / CONTROLS
+   ============================================ */
+
+.olt-controls {
+  display: flex;
+  gap: var(--olt-3);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--olt-3) 0;
+  border-top: 1px solid var(--olt-border);
+}
+
+.olt-control-group {
+  display: flex;
+  gap: var(--olt-2);
+  flex-wrap: wrap;
+}
+
+.olt-control-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--olt-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-self: center;
+}
+
+.olt-tabs {
+  display: inline-flex;
+  border: 1px solid var(--olt-border);
+  border-radius: var(--olt-radius-sm);
+  overflow: hidden;
+  background: var(--olt-surface);
+  gap: 0;
+}
+
+.olt-tab {
+  appearance: none;
+  border: 0;
+  border-left: 1px solid var(--olt-border);
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--olt-text-2);
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+  font-family: var(--olt-font-sans);
+}
+
+.olt-tab:first-child {
+  border-left: 0;
+}
+
+.olt-tab:hover {
+  background: var(--olt-surface-2);
+}
+
+.olt-tab[aria-selected="true"] {
+  background: var(--olt-navy-900);
+  color: #ffffff;
+}
+
+.olt-tab:focus-visible {
+  outline: 2px solid var(--olt-blue-500);
+  outline-offset: -1px;
+}
+
+/* Responsive: stack controls on mobile */
+@media (max-width: 480px) {
+  .olt-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--olt-2);
+  }
+
+  .olt-control-group {
+    width: 100%;
+  }
+
+  .olt-tabs {
+    width: 100%;
+  }
+
+  .olt-tab {
+    flex: 1;
+  }
+}
+
+/* ============================================
+   CHART CONTAINER
+   ============================================ */
+
+.olt-chart {
+  margin: 0;
+  padding: var(--olt-2) 0;
+  background: transparent;
+  min-height: 280px; /* Desktop default */
+  border-top: 1px solid var(--olt-border);
+}
+
+.olt-chart-wrapper {
+  width: 100%;
+  height: 280px; /* Desktop default */
+}
+
+/* Chart tooltip */
+.olt-chart-tooltip {
+  background: var(--olt-tooltip-bg);
+  color: var(--olt-tooltip-text);
+  border-radius: 8px;
+  padding: var(--olt-2) var(--olt-3);
+  box-shadow: var(--olt-shadow-md);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.olt-chart-tooltip-date {
+  font-weight: 700;
+  margin-bottom: var(--olt-1);
+  opacity: 0.9;
+}
+
+.olt-chart-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--olt-3);
+  align-items: center;
+}
+
+.olt-chart-tooltip-label {
+  opacity: 0.8;
+}
+
+.olt-chart-tooltip-value {
+  font-weight: 700;
+}
+
+/* ============================================
+   BUTTONS / CTA
+   ============================================ */
+
+.olt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: var(--olt-radius-sm);
+  border: 1px solid transparent;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--olt-font-sans);
+  text-decoration: none;
+  transition:
+    filter 0.2s ease,
+    opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.olt-btn:focus-visible {
+  outline: 2px solid var(--olt-blue-500);
+  outline-offset: 2px;
+}
+
+.olt-btn--navy {
+  background: var(--olt-navy-900);
+  color: #ffffff;
+}
+
+.olt-btn--navy:hover {
+  filter: brightness(0.95);
+}
+
+.olt-btn--outline {
+  background: transparent;
+  border-color: var(--olt-border);
+  color: var(--olt-text);
+}
+
+.olt-btn--outline:hover {
+  background: var(--olt-surface-2);
+}
+
+.olt-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary CTA Button - OLT Navy Style */
+.olt-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.5rem;
+  border-radius: 0;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: var(--olt-font-sans);
+  text-decoration: none;
+  background-color: #2d366d;
+  color: #ffffff;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.olt-btn-primary:hover {
+  background-color: #0056b3;
+  text-decoration: none;
+  color: #ffffff;
+}
+
+.olt-btn-primary:focus-visible {
+  outline: 2px solid var(--olt-blue-500);
+  outline-offset: 2px;
+}
+
+/* Header CTA - visible on desktop, hidden on mobile */
+.olt-header-cta {
+  display: block;
+}
+
+/* Mobile CTA - hidden on desktop, shown on mobile */
+.olt-mobile-cta {
+  display: none;
+}
+
+.olt-mobile-cta .olt-btn-primary {
+  width: 100%;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+
+.olt-embed-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--olt-3);
+  padding-top: var(--olt-2);
+  border-top: 1px solid var(--olt-border);
+}
+
+.olt-embed-timestamp {
+  font-size: 11px;
+  color: var(--olt-muted);
+  margin: 0;
+}
+
+/* ============================================
+   LOADING & SKELETON STATES
+   ============================================ */
+
+.olt-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--olt-surface-2) 25%,
+    var(--olt-surface) 50%,
+    var(--olt-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: olt-pulse 1.5s infinite;
+  border-radius: var(--olt-radius-sm);
+}
+
+@keyframes olt-pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.olt-skeleton-kpi {
+  height: 60px;
+}
+
+.olt-skeleton-chart {
+  height: 300px;
+}
+
+/* ============================================
+   LOADING SPINNER (for API calls)
+   ============================================ */
+
+.olt-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--olt-border);
+  border-top-color: var(--olt-navy-900);
+  border-radius: 50%;
+  animation: olt-spin 0.8s linear infinite;
+}
+
+@keyframes olt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   ERROR & SUCCESS STATES
+   ============================================ */
+
+.olt-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--olt-radius-sm);
+  padding: var(--olt-3);
+  color: #991b1b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.olt-error a {
+  color: #7f1d1d;
+  text-decoration: underline;
+}
+
+.olt-error a:hover {
+  color: #5f0f0f;
+}
+
+.olt-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--olt-radius-sm);
+  padding: var(--olt-3);
+  color: #166534;
+  font-size: 14px;
+}
+
+.olt-warning {
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+  border-radius: var(--olt-radius-sm);
+  padding: var(--olt-3);
+  color: #92400e;
+  font-size: 14px;
+}
+
+.olt-embed-message {
+  padding: var(--olt-4);
+  text-align: center;
+  border-radius: var(--olt-radius-sm);
+  background: var(--olt-surface-2);
+  color: var(--olt-text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ============================================
+   MOBILE RESPONSIVENESS
+   ============================================ */
+
+@media (max-width: 860px) {
+  .olt-pricing-embed {
+    padding: var(--olt-4);
+  }
+}
+
+@media (max-width: 480px) {
+  .olt-pricing-embed {
+    padding: var(--olt-3);
+    gap: var(--olt-2);
+  }
+
+  .olt-event-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--olt-2);
+  }
+
+  .olt-event-title-block {
+    min-width: 0;
+  }
+
+  .olt-event-title {
+    font-size: 15px;
+  }
+
+  .olt-event-subtitle {
+    font-size: 11px;
+  }
+
+  .olt-btn {
+    width: 100%;
+    padding: 10px 14px;
+  }
+
+  /* Hide header CTA on mobile, show mobile CTA */
+  .olt-header-cta {
+    display: none;
+  }
+
+  .olt-mobile-cta {
+    display: block;
+  }
+
+  .olt-stat-value,
+  .olt-kpi-value {
+    font-size: 15px;
+  }
+  .olt-chart {
+    min-height: 200px; /* Mobile: compact chart */
+  }
+
+  .olt-chart-wrapper {
+    height: 200px; /* Mobile: compact chart */
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.olt-hidden {
+  display: none !important;
+}
+
+.olt-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.olt-text-center {
+  text-align: center;
+}
+
+.olt-text-right {
+  text-align: right;
+}
+
+.olt-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.olt-gap-1 {
+  gap: var(--olt-1);
+}
+.olt-gap-2 {
+  gap: var(--olt-2);
+}
+.olt-gap-3 {
+  gap: var(--olt-3);
+}
+.olt-gap-4 {
+  gap: var(--olt-4);
+}
+
+.olt-mt-2 {
+  margin-top: var(--olt-2);
+}
+.olt-mt-3 {
+  margin-top: var(--olt-3);
+}
+.olt-mt-4 {
+  margin-top: var(--olt-4);
+}

@@ -1,155 +1,268 @@
-import React, { useState, useEffect } from 'react'
-import PriceChart from './components/PriceChart'
-import PriceDisplay from './components/PriceDisplay'
+import React, { useState, useEffect } from "react";
+import PriceChart from "./components/PriceChart";
+import { fetchWidgetData } from "./api/client";
 
-function App({ eventId, theme = 'light' }) {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [eventData, setEventData] = useState(null)
-  const [chartData, setChartData] = useState([])
-  const [selectedMetric, setSelectedMetric] = useState('avg') // 'min', 'avg', 'max'
-  const [timeRange, setTimeRange] = useState('3day') // '3day', 'alltime'
+function App({ config }) {
+  const [currentData, setCurrentData] = useState(null);
+  const [chartData, setChartData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [eventEnded, setEventEnded] = useState(false);
 
+  // Chart controls
+  const [metric, setMetric] = useState("avg");
+  const [timeRange, setTimeRange] = useState("3day");
+
+  // Check if event has ended
+  const checkEventEnded = (data) => {
+    if (!data) return false;
+    if (data.ended_at) {
+      return new Date(data.ended_at) < new Date();
+    }
+    if (data.ends_at) {
+      return new Date(data.ends_at) < new Date();
+    }
+    return false;
+  };
+
+  // Fetch data
   useEffect(() => {
-    // Simulate data fetching (will be replaced with real Supabase call)
-    const fetchData = async () => {
-      setLoading(true)
+    let cancelled = false;
+    let pollInterval = null;
+
+    async function loadData() {
+      if (eventEnded) return;
+
+      setLoading(true);
+      setError(null);
+
       try {
-        // Mock data for development
-        const mockEventData = {
-          title: 'Lakers vs Celtics',
-          url: 'https://onlylocaltickets.com/events/lakers-celtics',
-          currentPrices: {
-            min: 125,
-            avg: 285,
-            max: 450
-          },
-          change24h: 5.2 // percentage
+        // fetchWidgetData returns { event, prices, chartData, eventEnded }
+        const widgetData = await fetchWidgetData({
+          eventId: config.eventId,
+          timeRange,
+        });
+
+        if (cancelled) return;
+
+        // Flatten event + prices into currentData for display
+        setCurrentData({
+          ...widgetData.event,
+          ...widgetData.prices,
+        });
+        setChartData(widgetData.chartData);
+
+        if (widgetData.eventEnded) {
+          setEventEnded(true);
         }
-
-        const mockChartData = generateMockChartData(timeRange)
-
-        setEventData(mockEventData)
-        setChartData(mockChartData)
-        setLoading(false)
       } catch (err) {
-        setError(err.message)
-        setLoading(false)
+        if (!cancelled) {
+          setError(err.message || "Failed to load pricing data");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
-    fetchData()
-  }, [eventId, timeRange])
+    loadData();
 
-  if (loading) {
-    return <div className="widget-loading">Loading ticket data...</div>
-  }
+    if (!eventEnded) {
+      pollInterval = setInterval(loadData, 60000);
+    }
 
-  if (error) {
-    return <div className="widget-error">Error: {error}</div>
-  }
+    return () => {
+      cancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [config.eventId, timeRange, metric, eventEnded]);
 
-  if (!eventData) {
-    return <div className="widget-error">No data available</div>
-  }
+  // Format price
+  const formatPrice = (value) => {
+    if (value == null) return "—";
+    return `$${Math.round(value).toLocaleString()}`;
+  };
 
-  return (
-    <div className={`ticket-widget theme-${theme}`}>
-      {/* Event Title */}
-      <div className="widget-header">
-        <h3 className="event-title">
-          <a href={eventData.url} target="_blank" rel="noopener noreferrer">
-            {eventData.title}
-          </a>
-        </h3>
+  // Format 24h change
+  const format24hChange = (value) => {
+    if (value == null)
+      return { text: "—", className: "olt-kpi-value--neutral" };
+    const isDown = value < 0;
+    const isUp = value > 0;
+    const arrow = isDown ? "▼" : isUp ? "▲" : "";
+    const sign = isUp ? "+" : "";
+    const className = isDown
+      ? "olt-kpi-value--down-good"
+      : isUp
+        ? "olt-kpi-value--up-bad"
+        : "olt-kpi-value--neutral";
+    return {
+      text: `${arrow}${sign}${value.toFixed(1)}%`,
+      className,
+    };
+  };
+
+  // Loading state
+  if (loading && !currentData) {
+    return (
+      <div className="olt-pricing-embed theme-light">
+        <div className="olt-loading">
+          <div className="olt-spinner"></div>
+          <p>Loading pricing data...</p>
+        </div>
       </div>
+    );
+  }
 
-      {/* Current Prices */}
-      <PriceDisplay 
-        prices={eventData.currentPrices}
-        change24h={eventData.change24h}
-        selectedMetric={selectedMetric}
-      />
-
-      {/* Toggle Controls */}
-      <div className="widget-controls">
-        <div className="metric-toggles">
-          <button 
-            className={selectedMetric === 'min' ? 'active' : ''}
-            onClick={() => setSelectedMetric('min')}
+  // Error state
+  if (error && !currentData) {
+    return (
+      <div className="olt-pricing-embed theme-light">
+        <div className="olt-error">
+          <span className="olt-error-icon">⚠️</span>
+          <p className="olt-error-message">{error}</p>
+          <button
+            className="olt-btn-retry"
+            onClick={() => window.location.reload()}
           >
-            Min
-          </button>
-          <button 
-            className={selectedMetric === 'avg' ? 'active' : ''}
-            onClick={() => setSelectedMetric('avg')}
-          >
-            Avg
-          </button>
-          <button 
-            className={selectedMetric === 'max' ? 'active' : ''}
-            onClick={() => setSelectedMetric('max')}
-          >
-            Max
+            Retry
           </button>
         </div>
+      </div>
+    );
+  }
 
-        <div className="time-toggles">
-          <button 
-            className={timeRange === '3day' ? 'active' : ''}
-            onClick={() => setTimeRange('3day')}
-          >
-            3 Days
-          </button>
-          <button 
-            className={timeRange === 'alltime' ? 'active' : ''}
-            onClick={() => setTimeRange('alltime')}
-          >
-            All Time
-          </button>
+  const change24h = format24hChange(currentData?.change_24h);
+  const eventUrl =
+    currentData?.olt_url ||
+    `https://onlylocaltickets.com/events/${config.eventId}`;
+  const eventTitle = currentData?.title || "Event";
+
+  // View Tickets button component (reused in header and mobile)
+  const ViewTicketsButton = ({ className = "" }) => (
+    <a
+      href={eventUrl}
+      className={`olt-btn-primary ${className}`}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      View Tickets
+    </a>
+  );
+
+  return (
+    <div className={`olt-pricing-embed theme-${config.theme || "light"}`}>
+      {/* Event Header */}
+      <div className="olt-event-header">
+        <div className="olt-event-title-block">
+          <h3 className="olt-event-title">
+            <a href={eventUrl} target="_blank" rel="noopener noreferrer">
+              {eventTitle}
+            </a>
+          </h3>
+          <p className="olt-event-subtitle">Powered by OnlyLocalTickets</p>
+        </div>
+        {/* Desktop CTA - hidden on mobile via CSS */}
+        <div className="olt-header-cta">
+          <ViewTicketsButton />
+        </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="olt-stats-bar">
+        <div className="olt-stat">
+          <span className="olt-stat-label">Min</span>
+          <span className="olt-stat-value olt-stat-value--price">
+            {formatPrice(currentData?.min_price)}
+          </span>
+        </div>
+        <div className="olt-stat">
+          <span className="olt-stat-label">Avg</span>
+          <span className="olt-stat-value olt-stat-value--price">
+            {formatPrice(currentData?.avg_price)}
+          </span>
+        </div>
+        <div className="olt-stat">
+          <span className="olt-stat-label">Max</span>
+          <span className="olt-stat-value olt-stat-value--price">
+            {formatPrice(currentData?.max_price)}
+          </span>
+        </div>
+        <div className="olt-stat olt-stat--change">
+          <span className="olt-stat-label">24h</span>
+          <span className={`olt-stat-value ${change24h.className}`}>
+            {change24h.text}
+          </span>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="olt-controls">
+        <div className="olt-control-group">
+          <span className="olt-control-group-label">Price:</span>
+          <div className="olt-tabs" role="tablist" aria-label="Price metric">
+            {["min", "avg", "max"].map((m) => (
+              <button
+                key={m}
+                className="olt-tab"
+                role="tab"
+                aria-selected={metric === m}
+                onClick={() => setMetric(m)}
+              >
+                {m.charAt(0).toUpperCase() + m.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="olt-control-group">
+          <span className="olt-control-group-label">Range:</span>
+          <div className="olt-tabs" role="tablist" aria-label="Time range">
+            <button
+              className="olt-tab"
+              role="tab"
+              aria-selected={timeRange === "3day"}
+              onClick={() => setTimeRange("3day")}
+            >
+              3 Days
+            </button>
+            <button
+              className="olt-tab"
+              role="tab"
+              aria-selected={timeRange === "alltime"}
+              onClick={() => setTimeRange("alltime")}
+            >
+              All Time
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Chart */}
-      <PriceChart 
-        data={chartData}
-        metric={selectedMetric}
-        timeRange={timeRange}
-      />
-
-      {/* CTA Button */}
-      <div className="widget-footer">
-        <a 
-          href={eventData.url} 
-          className="cta-button"
-          target="_blank" 
-          rel="noopener noreferrer"
-        >
-          View Tickets
-        </a>
+      <div className="olt-chart">
+        <div className="olt-chart-wrapper">
+          <PriceChart data={chartData} metric={metric} timeRange={timeRange} />
+        </div>
       </div>
+
+      {/* Mobile CTA - shown only on mobile, below chart */}
+      <div className="olt-mobile-cta">
+        <ViewTicketsButton />
+      </div>
+
+      {/* Footer */}
+      <div className="olt-embed-footer">
+        <p className="olt-embed-timestamp">
+          Updated {new Date().toLocaleTimeString()}
+        </p>
+      </div>
+
+      {/* Event ended overlay */}
+      {eventEnded && (
+        <div className="olt-event-ended-notice">This event has ended</div>
+      )}
     </div>
-  )
+  );
 }
 
-// Helper function to generate mock chart data
-function generateMockChartData(timeRange) {
-  const data = []
-  const points = timeRange === '3day' ? 72 : 30 // 72 hours or 30 days
-  const now = Date.now()
-  const interval = timeRange === '3day' ? 3600000 : 86400000 // 1 hour or 1 day
-
-  for (let i = points; i >= 0; i--) {
-    const timestamp = now - (i * interval)
-    data.push({
-      timestamp,
-      min: 100 + Math.random() * 50,
-      avg: 250 + Math.random() * 100,
-      max: 400 + Math.random() * 100
-    })
-  }
-
-  return data
-}
-
-export default App
+export default App;
