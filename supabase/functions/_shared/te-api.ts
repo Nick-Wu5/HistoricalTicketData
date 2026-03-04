@@ -4,21 +4,21 @@ import { encodeBase64 } from "jsr:@std/encoding@1.0.10/base64";
 /**
  * Ticket Evolution API client for Deno.
  * Uses HMAC-SHA256 signed requests (X-Token, X-Signature).
- * Base URL: sandbox by default; switch for production.
+ * Base URL: production by default; override via env/constructor.
  */
 export class TicketEvolutionClient {
   private apiToken: string;
   private apiSecret: string;
-  /** Sandbox: api.sandbox.ticketevolution.com; Production: api.ticketevolution.com */
+  /** Production: api.ticketevolution.com; Sandbox: api.sandbox.ticketevolution.com */
   private baseUrl: string;
 
   constructor(token: string, secret: string, baseUrl?: string) {
     this.apiToken = token;
     this.apiSecret = secret;
-    // Allow override via env var or constructor param (defaults to sandbox)
+    // Allow override via env var or constructor param (defaults to production)
     this.baseUrl = baseUrl ||
       Deno.env.get("TE_API_BASE_URL") ||
-      "https://api.sandbox.ticketevolution.com/v9";
+      "https://api.ticketevolution.com/v9";
   }
 
   /**

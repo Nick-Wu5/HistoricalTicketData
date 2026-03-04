@@ -47,10 +47,18 @@ Longer‑term, some of these knobs should move into a **`settings` config table*
 
 1. Edit `.env` in repo root:
    ```bash
+   # Production (default target used by scripts if TE_API_BASE_URL is unset)
    TE_API_TOKEN=...
    TE_API_SECRET=...
+   TE_API_BASE_URL=https://api.ticketevolution.com
+   ```
+
+   For sandbox testing locally, override with:
+
+   ```bash
    TE_API_BASE_URL=https://api.sandbox.ticketevolution.com
    ```
+
 2. Re‑run scripts like:
    ```bash
    node scripts/upsertEvent.js <te_event_id>
@@ -333,7 +341,7 @@ Example rows:
 ```sql
 insert into settings (key, value) values
   ('hourly_retention_after_end_days', jsonb_build_object('days', 7)),
-  ('te_api_base_url', jsonb_build_object('url', 'https://api.sandbox.ticketevolution.com/v9'));
+  ('te_api_base_url', jsonb_build_object('url', 'https://api.ticketevolution.com/v9'));
 ```
 
 Then:

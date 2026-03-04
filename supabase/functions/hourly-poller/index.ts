@@ -455,7 +455,7 @@ Deno.serve(async (_req) => {
     console.log(`Hour bucket: ${hourBucket}`);
     console.log(
       `API Base URL: ${
-        teBaseUrl || "https://api.sandbox.ticketevolution.com/v9 (default)"
+        teBaseUrl || "https://api.ticketevolution.com/v9 (default)"
       }`,
     );
     console.log(

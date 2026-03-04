@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/', // Script will be loaded from site root (e.g. /ticket-embed.js)
+  define: {
+    // Ensure React and deps see production mode and strip process/env at build time
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'process.env': '{}',
+  },
   build: {
     lib: {
       entry: './src/main.jsx',

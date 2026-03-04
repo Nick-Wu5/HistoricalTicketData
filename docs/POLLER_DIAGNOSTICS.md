@@ -16,14 +16,14 @@ The poller now logs:
 
 ### 2. **Production API Support**
 
-You can now switch to production by setting an environment variable:
+You can now switch environments by setting an environment variable:
 
 ```bash
 # In Supabase dashboard → Edge Functions → hourly-poller → Secrets
 TE_API_BASE_URL=https://api.ticketevolution.com/v9
 ```
 
-**Default behavior:** Still uses sandbox (`https://api.sandbox.ticketevolution.com/v9`) if not set.
+**Default behavior:** Uses production (`https://api.ticketevolution.com/v9`) if not set. To target sandbox explicitly (for testing), set `TE_API_BASE_URL=https://api.sandbox.ticketevolution.com/v9`.
 
 ### 3. **Data Change Detection**
 
@@ -44,7 +44,7 @@ HOURLY POLLER STARTING
 ═══════════════════════════════════════════════════════════════
 Current UTC time: 2026-02-12T14:23:45.123Z
 Hour bucket: 2026-02-12T14:00:00.000Z
-API Base URL: https://api.sandbox.ticketevolution.com/v9 (default)
+API Base URL: https://api.ticketevolution.com/v9 (default)
 ═══════════════════════════════════════════════════════════════
 
 [Event Name] Fetched 15 listings, data hash: abc123

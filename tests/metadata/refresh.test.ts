@@ -155,3 +155,55 @@ Deno.test("metadata: ended event => polling_enabled false, ended_at set", async 
   assertEquals(outcome.results[0].changes?.includes("polling_enabled"), true);
   assertEquals(outcome.results[0].changes?.includes("ended_at"), true);
 });
+
+Deno.test("metadata: olt_url rebuilt when title/venue/date change", async () => {
+  const teEventId = 2795400;
+  const existing: ExistingEventRow[] = [
+    {
+      te_event_id: teEventId,
+      title: "Old Event Name",
+      starts_at: "2027-06-14T19:00:00.000Z",
+      ends_at: "2027-06-14T23:00:00.000Z",
+      ended_at: null,
+      polling_enabled: true,
+      olt_url: "https://www.onlylocaltickets.com/events/old-event-name-tickets_nyc-ny_madison-square-garden_2027-06-14/2795400",
+    },
+  ];
+
+  const teClient = new MockTeEventsClient({
+    [teEventId]: {
+      name: "Lakers vs Celtics",
+      occurs_at: "2027-06-16T20:00:00.000Z",
+      venue: { city: "Los Angeles", state_code: "CA", name: "Crypto Arena" },
+      category: { short_name: "nba" },
+    },
+  });
+
+  let capturedPayload: { olt_url: string | null } | null = null;
+  const updateEvents = async (
+    _teEventId: number,
+    payload: { olt_url?: string | null },
+  ) => {
+    capturedPayload = { olt_url: payload.olt_url ?? null };
+    return { error: null };
+  };
+
+  const outcome = await runRefreshMetadataCore({
+    existingRows: existing,
+    teClient,
+    dryRun: false,
+    now: new Date("2026-06-01T00:00:00.000Z"),
+    updateEvents,
+  });
+
+  assertEquals(outcome.updated, 1);
+  assertEquals(outcome.results[0].changes?.includes("olt_url"), true);
+  assertEquals(capturedPayload !== null, true);
+
+  const url = capturedPayload!.olt_url ?? "";
+  assertEquals(url.includes("lakers-vs-celtics-tickets"), true);
+  assertEquals(url.includes("los-angeles-ca"), true);
+  assertEquals(url.includes("crypto-arena"), true);
+  assertEquals(url.includes("/2795400"), true);
+  assertEquals(url.startsWith("https://www.onlylocaltickets.com/events/"), true);
+});
