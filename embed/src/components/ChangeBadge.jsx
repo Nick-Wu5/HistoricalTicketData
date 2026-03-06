@@ -5,7 +5,13 @@ import React from "react";
  * When showNa is true (backend returned null for change_24h), show subtle "24h N/A".
  * Rendered twice in layout (mobile + desktop) with CSS controlling visibility.
  */
-function ChangeBadge({ value, isPositive, visibility = "desktop", showNa = false }) {
+function ChangeBadge({
+  value,
+  isPositive,
+  isZero = false,
+  visibility = "desktop",
+  showNa = false,
+}) {
   const visibilityClass =
     visibility === "mobile" ? "olt-change--mobile" : "olt-change--desktop";
 
@@ -22,14 +28,19 @@ function ChangeBadge({ value, isPositive, visibility = "desktop", showNa = false
 
   if (value == null) return null;
 
-  const directionClass = isPositive ? "olt-change--up" : "olt-change--down";
+  const directionClass = isZero
+    ? "olt-change--neutral"
+    : isPositive
+      ? "olt-change--up"
+      : "olt-change--down";
+  const arrow = isZero ? "→" : isPositive ? "↑" : "↓";
 
   return (
     <span
       className={`olt-change ${visibilityClass} ${directionClass}`}
       aria-label={`24 hour change: ${value}`}
     >
-      <span className="olt-change-arrow">{isPositive ? "↑" : "↓"}</span>
+      <span className="olt-change-arrow">{arrow}</span>
       {value}
       <span className="olt-change-label">24h</span>
     </span>

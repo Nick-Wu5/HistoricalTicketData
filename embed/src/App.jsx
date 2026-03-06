@@ -104,7 +104,8 @@ function App({ config }) {
     `https://onlylocaltickets.com/events/${config.eventId}`;
   const eventTitle = currentData?.title || "Event";
   const changeValue = formatChange(currentData?.change_24h);
-  const isPositiveChange = currentData?.change_24h >= 0;
+  const isPositiveChange = (currentData?.change_24h ?? 0) > 0;
+  const isZeroChange = currentData?.change_24h === 0;
   const show24hNa = currentData != null && currentData.change_24h == null;
 
   const formatEventDate = (dateString) => {
@@ -134,6 +135,7 @@ function App({ config }) {
             <ChangeBadge
               value={changeValue}
               isPositive={isPositiveChange}
+              isZero={isZeroChange}
               visibility="mobile"
               showNa={show24hNa}
             />
@@ -147,6 +149,7 @@ function App({ config }) {
           <ChangeBadge
             value={changeValue}
             isPositive={isPositiveChange}
+            isZero={isZeroChange}
             visibility="desktop"
             showNa={show24hNa}
           />

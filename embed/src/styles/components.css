@@ -132,6 +132,11 @@
   color: var(--olt-danger);
 }
 
+.olt-change--neutral {
+  background: var(--olt-surface-2);
+  color: var(--olt-muted);
+}
+
 .olt-change--na {
   background: var(--olt-surface-2);
   color: var(--olt-muted);
