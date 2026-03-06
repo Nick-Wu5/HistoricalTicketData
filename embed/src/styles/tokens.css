@@ -1,14 +1,16 @@
 /**
- * Historical Ticket Pricing Embed — Style Tokens
- *
- * CSS custom properties (variables) derived from docs/style.md.
- * These are scoped to the widget's Shadow DOM root and do not pollute the host page.
- *
- * Naming convention: --olt-[category]-[shade]
- * Examples: --olt-navy-900, --olt-text-2, --olt-radius-md
+ * Historical Ticket Pricing Embed — Design Tokens
+ * 
+ * CSS custom properties for the OLT pricing widget.
+ * Scoped to Shadow DOM :host to prevent style leakage.
+ * 
+ * Naming: --olt-[category]-[variant]
  */
 
 :host {
+  /* ─────────────────────────────────────────────────
+     Typography
+     ───────────────────────────────────────────────── */
   --olt-font-sans:
     system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial",
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
@@ -17,81 +19,88 @@
     ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas",
     "Liberation Mono", "Courier New", monospace;
 
-  /* Core colors (brand palette) */
-  --olt-navy-900: #203040;
-  --olt-navy-800: #203060;
-  --olt-blue-500: #50a0d0;
-  --olt-green-500: #70b060;
+  /* ─────────────────────────────────────────────────
+     Brand Colors (OLT official palette)
+     ───────────────────────────────────────────────── */
+  --olt-brand-blue: #24a8df; /* Accent: focus rings, chart hover, interactions */
+  --olt-brand-navy: #2c356d; /* Depth: chart line, active toggles, emphasis */
+  --olt-brand-green: #4fce63; /* CTA gradient end */
 
-  /* Surface colors */
-  --olt-bg: #ffffff;
+  /* ─────────────────────────────────────────────────
+     Surfaces & Backgrounds
+     ───────────────────────────────────────────────── */
   --olt-surface: #ffffff;
   --olt-surface-2: #f7f8fa;
+  --olt-white: #ffffff;
 
-  /* Text colors */
+  /* ─────────────────────────────────────────────────
+     Text Colors
+     ───────────────────────────────────────────────── */
   --olt-text: #111827;
   --olt-text-2: #4b5563;
   --olt-muted: #6b7280;
+
+  /* ─────────────────────────────────────────────────
+     Borders
+     ───────────────────────────────────────────────── */
   --olt-border: #e6e8ee;
 
-  /* Semantic colors */
-  --olt-danger: #dc2626;
-  --olt-warning: #f59e0b;
+  /* ─────────────────────────────────────────────────
+     Semantic Colors (Status indicators)
+     ───────────────────────────────────────────────── */
   --olt-success: #16a34a;
-  --olt-link: #1f4fd6;
-
-  /* Semantic backgrounds (10% opacity variants) */
   --olt-success-bg: rgba(22, 163, 74, 0.1);
+  --olt-danger: #dc2626;
   --olt-danger-bg: rgba(220, 38, 38, 0.1);
-  --olt-warning-bg: rgba(245, 158, 11, 0.1);
 
-  /* Neutrals */
-  --olt-white: #ffffff;
-
-  /* Radii (rounded corners) */
+  /* ─────────────────────────────────────────────────
+     Radii
+     ───────────────────────────────────────────────── */
   --olt-radius-sm: 6px;
   --olt-radius-md: 10px;
-  --olt-radius-lg: 14px;
+  --olt-radius-pill: 999px;
 
-  /* Shadows */
+  /* ─────────────────────────────────────────────────
+     Shadows
+     ───────────────────────────────────────────────── */
   --olt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --olt-shadow-md: 0 2px 10px rgba(0, 0, 0, 0.08);
+  --olt-shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.1);
 
-  /* Spacing scale (4px base) */
-  --olt-1: 4px;
-  --olt-2: 8px;
-  --olt-3: 12px;
-  --olt-4: 16px;
-  --olt-5: 20px;
-  --olt-6: 24px;
+  /* ─────────────────────────────────────────────────
+     Spacing (4px base scale)
+     ───────────────────────────────────────────────── */
+  --olt-space-1: 4px;
+  --olt-space-2: 8px;
+  --olt-space-3: 12px;
+  --olt-space-4: 16px;
+  --olt-space-5: 20px;
+  --olt-space-6: 24px;
 
-  /* Chart-specific colors */
-  --olt-gridline: rgba(17, 24, 39, 0.08);
+  /* ─────────────────────────────────────────────────
+     Transitions
+     ───────────────────────────────────────────────── */
+  --olt-transition-fast: 150ms ease;
+  --olt-transition-base: 200ms ease;
+  --olt-transition-smooth: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ─────────────────────────────────────────────────
+     Chart
+     ───────────────────────────────────────────────── */
+  --olt-chart-line: var(--olt-brand-navy);
+  --olt-chart-accent: var(--olt-brand-blue);
+  --olt-chart-grid: rgba(0, 0, 0, 0.08);
   --olt-tooltip-bg: #111827;
   --olt-tooltip-text: #ffffff;
 
-  /* Monochrome scale (based on OLT Navy #203040) */
-  --olt-mono-900: #203040; /* Primary: chart line, stat values */
-  --olt-mono-700: #3d4f5f; /* Secondary emphasis */
-  --olt-mono-500: #5a6e7e; /* Tertiary elements */
-  --olt-mono-300: #9ca8b3; /* Muted: inactive toggles */
-  --olt-mono-100: #e8eaed; /* Gridlines, light borders */
-  --olt-mono-50: #f5f6f7; /* Stat card backgrounds */
-
-  /* Chart line colors (monochrome with opacity variations) */
-  --olt-chart-line: #203040;
-  --olt-chart-line-min: rgba(32, 48, 64, 0.4); /* 40% opacity */
-  --olt-chart-line-avg: rgba(32, 48, 64, 1); /* 100% opacity */
-  --olt-chart-line-max: rgba(32, 48, 64, 0.6); /* 60% opacity */
-}
-
-/* Dark theme variant (optional, for future use) */
-:host(.theme-dark) {
-  --olt-bg: #1a1a1a;
-  --olt-surface: #1a1a1a;
-  --olt-surface-2: #2a2a2a;
-  --olt-text: #ffffff;
-  --olt-text-2: #e5e5e5;
-  --olt-muted: #999999;
-  --olt-border: #404040;
+  /* ─────────────────────────────────────────────────
+     CTA Button
+     ───────────────────────────────────────────────── */
+  --olt-cta-gradient: linear-gradient(
+    to right,
+    var(--olt-brand-blue),
+    var(--olt-brand-green)
+  );
+  --olt-cta-shadow: 0 2px 8px rgba(36, 168, 224, 0.2);
+  --olt-cta-shadow-hover: 0 4px 16px rgba(36, 168, 224, 0.35);
 }

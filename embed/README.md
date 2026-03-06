@@ -2,84 +2,95 @@
 
 Embeddable widget for displaying historical ticket pricing charts on OnlyLocalTickets event pages.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 2. Start Development Server
+
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:5173` to see the widget in action with mock data.
+Visit `http://localhost:5173` to see the widget with mock data.
 
 ### 3. Build for Production
+
 ```bash
 npm run build
 ```
 
-This creates `dist/ticket-embed.js` ready for deployment to `pricing.onlylocaltickets.com`.
+Creates `dist/ticket-embed.js` and `dist/index.html` (test page).
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 embed/
 ├── src/
-│   ├── main.jsx              # Bootstrap script (Shadow DOM setup)
-│   ├── App.jsx               # Main widget component
+│   ├── main.jsx              # Entry; delegates to bootstrap
+│   ├── App.jsx               # Root component
+│   ├── bootstrap/
+│   │   ├── index.jsx         # Mount logic, Shadow DOM, config parsing
+│   │   └── styles.js         # Injects tokens + components CSS
+│   ├── api/
+│   │   └── client.js         # Supabase + mock data
 │   ├── components/
-│   │   ├── PriceChart.jsx    # Chart component (Recharts)
-│   │   └── PriceDisplay.jsx  # Current price display
+│   │   ├── PriceChart.jsx    # Recharts area chart
+│   │   ├── PriceStats.jsx    # Min/avg/max stats
+│   │   └── ChangeBadge.jsx   # 24h change indicator
 │   └── styles/
-│       └── embed.css         # Widget styles
-├── index.html                # Development test page
-├── vite.config.js            # Vite build configuration
-└── package.json
+│       ├── tokens.css        # Design tokens (CSS vars)
+│       └── components.css    # Component styles
+├── index.html                # Dev entry
+├── index.production.html     # Production test page (copied to dist/)
+├── vite.config.js
+└── scripts/postbuild.js      # Copies index.production.html → dist/
 ```
 
-## 🎨 Features
+## Embed Usage
 
-- **Shadow DOM Isolation**: Styles won't conflict with host page
-- **Responsive Design**: Works on mobile and desktop
-- **Theme Support**: Light and dark themes via `data-theme` attribute
-- **Mock Data**: Development works without backend
-- **Multiple Instances**: Can embed multiple widgets on same page
-
-## 🔧 Development
-
-The widget uses mock data during development. You can test with multiple event IDs by editing `index.html`:
+Add a mount element with `te-event-id` (or `data-event-id` for backwards compatibility):
 
 ```html
-<div id="ticket-widget-1" data-event-id="lakers-celtics-2024-03-15"></div>
-<div id="ticket-widget-2" data-event-id="warriors-nets-2024-03-20" data-theme="dark"></div>
-```
-
-## 📦 Production Build
-
-The build process creates a single IIFE bundle that includes:
-- React and ReactDOM
-- Recharts
-- All component code
-- Styles
-
-Output: `dist/ticket-embed.js` (~150KB gzipped)
-
-## 🌐 Deployment
-
-Once built, upload `dist/ticket-embed.js` to `pricing.onlylocaltickets.com`.
-
-Embed on event pages:
-```html
-<div id="ticket-widget" data-event-id="YOUR-EVENT-ID"></div>
+<div te-event-id="2795412"></div>
 <script src="https://pricing.onlylocaltickets.com/ticket-embed.js"></script>
 ```
 
-## 🔗 Next Steps
+**Attributes:**
 
-1. ✅ Local development setup (current)
-2. ⏳ Connect to Supabase for real data
-3. ⏳ Deploy to pricing.onlylocaltickets.com
-4. ⏳ Integrate with MarketSnare CMS
+| Attribute       | Required | Description                         |
+| --------------- | -------- | ----------------------------------- |
+| `te-event-id`   | Yes      | Ticket Evolution event ID (numeric) |
+| `data-event-id` | Fallback | Same as above                       |
+| `data-theme`    | No       | `light` or `dark` (default: light)  |
+| `data-mode`     | No       | `real` or `mock` (default: real)    |
+
+**Programmatic API:**
+
+```js
+// Auto-init on load (default)
+// Or manually:
+TicketWidget.initializeWidgets({ selector: "[te-event-id]" });
+
+// Manual mount
+TicketWidget.mount(element, { eventId: "2795412", theme: "light" });
+
+// Unmount all
+TicketWidget.unmountAll();
+```
+
+## Features
+
+- **Shadow DOM**: Styles isolated from host page
+- **Responsive**: Mobile and desktop layouts
+- **Mock mode**: Works without Supabase when `VITE_SUPABASE_ANON_KEY` is unset or `data-mode="mock"`
+- **Multiple instances**: Several widgets per page supported
+
+## Build Output
+
+- `dist/ticket-embed.js` — Single IIFE bundle (~150KB gzipped)
+- `dist/index.html` — Test page for production build

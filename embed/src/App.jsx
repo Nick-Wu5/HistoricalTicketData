@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import PriceChart from "./components/PriceChart";
 import PriceStats from "./components/PriceStats";
+import ChangeBadge from "./components/ChangeBadge";
 import { fetchWidgetData } from "./api/client";
 
 function App({ config }) {
@@ -10,21 +11,8 @@ function App({ config }) {
   const [error, setError] = useState(null);
   const [eventEnded, setEventEnded] = useState(false);
 
-  // Chart controls
   const [metric, setMetric] = useState("avg");
   const [timeRange, setTimeRange] = useState("3day");
-
-  // Check if event has ended
-  const checkEventEnded = (data) => {
-    if (!data) return false;
-    if (data.ended_at) {
-      return new Date(data.ended_at) < new Date();
-    }
-    if (data.ends_at) {
-      return new Date(data.ends_at) < new Date();
-    }
-    return false;
-  };
 
   // Fetch data
   useEffect(() => {
@@ -42,6 +30,7 @@ function App({ config }) {
         const widgetData = await fetchWidgetData({
           eventId: config.eventId,
           timeRange,
+          mode: config.mode || "real",
         });
 
         if (cancelled) return;
@@ -77,7 +66,7 @@ function App({ config }) {
       cancelled = true;
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [config.eventId, timeRange, metric, eventEnded]);
+  }, [config.eventId, timeRange, eventEnded]);
 
   // Format 24h change
   const formatChange = (value) => {
@@ -116,7 +105,6 @@ function App({ config }) {
   const changeValue = formatChange(currentData?.change_24h);
   const isPositiveChange = currentData?.change_24h >= 0;
 
-  // Format event date/time for subtitle
   const formatEventDate = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
@@ -135,28 +123,29 @@ function App({ config }) {
       {/* HEADER */}
       <header className="olt-header">
         <div className="olt-header-left">
-          <h2 className="olt-title">
-            <a href={eventUrl} target="_blank" rel="noopener noreferrer">
-              {eventTitle}
-            </a>
-          </h2>
+          <div className="olt-title-row">
+            <h2 className="olt-title">
+              <a href={eventUrl} target="_blank" rel="noopener noreferrer">
+                {eventTitle}
+              </a>
+            </h2>
+            <ChangeBadge
+              value={changeValue}
+              isPositive={isPositiveChange}
+              visibility="mobile"
+            />
+          </div>
           {eventDateTime && (
             <span className="olt-subtitle">{eventDateTime}</span>
           )}
         </div>
 
         <div className="olt-header-right">
-          {changeValue && (
-            <span
-              className={`olt-change ${isPositiveChange ? "olt-change--up" : "olt-change--down"}`}
-            >
-              <span className="olt-change-arrow">
-                {isPositiveChange ? "↑" : "↓"}
-              </span>
-              {changeValue}
-              <span className="olt-change-label">24h</span>
-            </span>
-          )}
+          <ChangeBadge
+            value={changeValue}
+            isPositive={isPositiveChange}
+            visibility="desktop"
+          />
           <a
             href={eventUrl}
             className="olt-btn-primary olt-header-cta"
@@ -168,54 +157,67 @@ function App({ config }) {
         </div>
       </header>
 
-      {/* STATUS BAR */}
+      {/* Stats + controls */}
       <div className="olt-status-bar">
         <PriceStats
           min={currentData?.min_price}
           avg={currentData?.avg_price}
           max={currentData?.max_price}
+          activeMetric={metric}
         />
 
         <div className="olt-controls">
           {/* Price Type Toggle */}
-          <div className="olt-toggle-group">
+          <div
+            className="olt-toggle-group olt-toggle-group--metric"
+            data-active-index={metric === "min" ? 0 : metric === "avg" ? 1 : 2}
+          >
+            <span className="olt-toggle-pill" aria-hidden="true" />
             {["min", "avg", "max"].map((m) => (
               <button
                 key={m}
-                className={`olt-toggle ${metric === m ? "olt-toggle--active" : ""}`}
+                className="olt-toggle"
                 onClick={() => setMetric(m)}
                 aria-pressed={metric === m}
+                type="button"
               >
-                {m.charAt(0).toUpperCase() + m.slice(1)}
+                {m.toUpperCase()}
               </button>
             ))}
           </div>
 
           {/* Date Range Toggle */}
-          <div className="olt-toggle-group">
-            {[
-              { value: "3day", label: "3D" },
-              { value: "alltime", label: "All" },
-            ].map((range) => (
-              <button
-                key={range.value}
-                className={`olt-toggle ${timeRange === range.value ? "olt-toggle--active" : ""}`}
-                onClick={() => setTimeRange(range.value)}
-                aria-pressed={timeRange === range.value}
-              >
-                {range.label}
-              </button>
-            ))}
+          <div
+            className="olt-toggle-group olt-toggle-group--range"
+            data-active-index={timeRange === "3day" ? 0 : 1}
+          >
+            <span className="olt-toggle-pill" aria-hidden="true" />
+            <button
+              className="olt-toggle"
+              onClick={() => setTimeRange("3day")}
+              aria-pressed={timeRange === "3day"}
+              type="button"
+            >
+              3 DAY
+            </button>
+            <button
+              className="olt-toggle"
+              onClick={() => setTimeRange("alltime")}
+              aria-pressed={timeRange === "alltime"}
+              type="button"
+            >
+              All
+            </button>
           </div>
         </div>
       </div>
 
-      {/* CHART */}
+      {/* Chart */}
       <div className="olt-chart">
         <PriceChart data={chartData} metric={metric} timeRange={timeRange} />
       </div>
 
-      {/* MOBILE CTA */}
+      {/* Mobile CTA (hidden on desktop) */}
       <div className="olt-mobile-cta">
         <a
           href={eventUrl}
@@ -227,14 +229,13 @@ function App({ config }) {
         </a>
       </div>
 
-      {/* FOOTER */}
+      {/* Footer */}
       <footer className="olt-footer">
         <span className="olt-timestamp">
           Updated {new Date().toLocaleTimeString()}
         </span>
       </footer>
 
-      {/* Event ended overlay */}
       {eventEnded && (
         <div className="olt-event-ended-notice">This event has ended</div>
       )}

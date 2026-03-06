@@ -1,13 +1,14 @@
 /**
- * Historical Ticket Pricing Embed — Component Styles (Consolidated)
- *
- * Clean, single design system with no legacy/duplicate styles.
+ * Historical Ticket Pricing Embed — Component Styles
+ * 
+ * Organized by UI section. Uses design tokens from tokens.css.
  * All styles scoped to .olt-pricing-embed root.
  */
 
-/* ============================================
+/* ═══════════════════════════════════════════════════════════════════════════
    ROOT CONTAINER
-   ============================================ */
+   Main embed wrapper with border, shadow, and flex layout.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-pricing-embed {
   box-sizing: border-box;
@@ -16,11 +17,11 @@
   background: var(--olt-surface);
   display: flex;
   flex-direction: column;
-  gap: var(--olt-4);
+  gap: var(--olt-space-4);
   border: 1px solid var(--olt-border);
   border-radius: var(--olt-radius-md);
   box-shadow: var(--olt-shadow-sm);
-  padding: var(--olt-5);
+  padding: var(--olt-space-5);
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -33,41 +34,50 @@
 }
 
 .olt-pricing-embed a {
-  color: var(--olt-link);
+  color: var(--olt-brand-blue);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: var(--olt-transition-base);
 }
 
 .olt-pricing-embed a:hover {
   text-decoration: underline;
 }
 
-/* ============================================
+/* ═══════════════════════════════════════════════════════════════════════════
    HEADER
-   ============================================ */
+   Event title, subtitle, 24h change badge, and primary CTA.
+   Desktop: horizontal layout. Mobile: stacked with badge beside title.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--olt-3);
+  gap: var(--olt-space-3);
   flex-wrap: wrap;
-  padding-bottom: var(--olt-3);
+  padding-bottom: var(--olt-space-3);
   border-bottom: 1px solid var(--olt-border);
 }
 
 .olt-header-left {
   display: flex;
   flex-direction: column;
-  gap: var(--olt-1);
+  gap: var(--olt-space-1);
   min-width: 0;
   flex: 1;
+}
+
+.olt-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--olt-space-3);
+  flex-wrap: wrap;
 }
 
 .olt-header-right {
   display: flex;
   align-items: center;
-  gap: var(--olt-3);
+  gap: var(--olt-space-3);
   flex-shrink: 0;
 }
 
@@ -80,7 +90,7 @@
 }
 
 .olt-title a {
-  color: var(--olt-link);
+  color: var(--olt-brand-navy);
   text-decoration: none;
 }
 
@@ -90,18 +100,20 @@
 
 .olt-subtitle {
   font-size: 13px;
-  color: var(--olt-text-secondary);
+  color: var(--olt-text-2);
   font-weight: 500;
 }
 
-/* ============================================
+/* ═══════════════════════════════════════════════════════════════════════════
    24H CHANGE BADGE
-   ============================================ */
+   Shows price change over 24 hours. Green for up, red for down.
+   Desktop: appears in header-right. Mobile: appears beside title.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-change {
   display: inline-flex;
   align-items: center;
-  gap: var(--olt-1);
+  gap: var(--olt-space-1);
   font-size: 14px;
   font-weight: 700;
   padding: 12px 16px;
@@ -131,36 +143,70 @@
   margin-left: 2px;
 }
 
-/* ============================================
-   STATUS BAR (Stats + Controls)
-   ============================================ */
+/* Mobile/Desktop visibility toggle */
+.olt-change--mobile {
+  display: none;
+}
+
+.olt-change--desktop {
+  display: inline-flex;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATUS BAR
+   Contains MIN/AVG/MAX stats and toggle controls.
+   Flexbox row on desktop, stacks on mobile.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-status-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--olt-3);
-  padding: var(--olt-2) 0;
+  gap: var(--olt-space-3);
+  padding: var(--olt-space-2) 0;
   flex-wrap: wrap;
 }
 
-/* Inline Stats */
+/* Stats row: MIN / AVG / MAX inline display */
 .olt-stats {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--olt-4);
+  gap: 0;
 }
 
 .olt-stat-item {
+  flex: 1;
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
+  padding-bottom: 8px;
+  padding-right: var(--olt-space-4);
+  opacity: 0.5;
+  transition: var(--olt-transition-base);
+}
+
+.olt-stat-item:last-of-type {
+  padding-right: 0;
+}
+
+.olt-stat-item--active {
+  opacity: 1;
+}
+
+.olt-stat-item--active .olt-stat-price {
+  color: var(--olt-brand-navy);
+}
+
+.olt-stat-item--active .olt-stat-label {
+  color: var(--olt-brand-navy);
+  opacity: 0.7;
 }
 
 .olt-stat-price {
   font-size: 16px;
   font-weight: 700;
-  color: var(--olt-mono-900);
+  color: var(--olt-brand-navy);
 }
 
 .olt-stat-label {
@@ -171,66 +217,131 @@
   letter-spacing: 0.5px;
 }
 
-/* ============================================
-   CONTROLS (Toggle Groups)
-   ============================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOGGLE CONTROLS
+   Pill-style segmented controls for metric (MIN/AVG/MAX) and
+   time range (3 DAY/ALL). Uses sliding pill indicator.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-controls {
   display: flex;
-  align-items: center;
-  gap: var(--olt-2);
+  flex-wrap: wrap;
+  gap: var(--olt-space-2);
+  justify-content: flex-end;
 }
 
 .olt-toggle-group {
-  display: inline-flex;
+  position: relative;
+  display: grid;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  border-radius: var(--olt-radius-pill);
   border: 1px solid var(--olt-border);
-  border-radius: var(--olt-radius-sm);
+  background: var(--olt-surface-2);
   overflow: hidden;
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
+/* Metric group = 3 equal columns */
+.olt-toggle-group--metric {
+  grid-template-columns: repeat(3, 1fr);
+  min-width: 130px;
+}
+
+/* Range group = 2 equal columns */
+.olt-toggle-group--range {
+  grid-template-columns: repeat(2, 1fr);
+  min-width: 90px;
+}
+
+/* Sliding pill indicator */
+.olt-toggle-pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  border-radius: var(--olt-radius-pill);
+  pointer-events: none;
+  background: var(--olt-white);
+  box-shadow: var(--olt-shadow-pill);
+  transition: transform var(--olt-transition-fast);
+  will-change: transform;
+}
+
+/* Pill sizing by group columns */
+.olt-toggle-group--metric .olt-toggle-pill {
+  width: calc((100% - 4px) / 3);
+}
+
+.olt-toggle-group--range .olt-toggle-pill {
+  width: calc((100% - 4px) / 2);
+}
+
+/* Translate based on active index */
+.olt-toggle-group[data-active-index="0"] .olt-toggle-pill {
+  transform: translateX(0%);
+}
+.olt-toggle-group[data-active-index="1"] .olt-toggle-pill {
+  transform: translateX(100%);
+}
+.olt-toggle-group[data-active-index="2"] .olt-toggle-pill {
+  transform: translateX(200%);
+}
+
+/* Toggle buttons */
 .olt-toggle {
-  padding: 6px 12px;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 0;
+  background: transparent;
   font-size: 12px;
   font-weight: 600;
   font-family: var(--olt-font-sans);
-  background: var(--olt-surface);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--olt-muted);
-  border: none;
   cursor: pointer;
-  transition: all 0.15s ease;
+  touch-action: manipulation;
+  transition: color var(--olt-transition-fast);
 }
 
-.olt-toggle:not(:last-child) {
-  border-right: 1px solid var(--olt-border);
+.olt-toggle[aria-pressed="true"] {
+  color: var(--olt-brand-navy);
 }
 
-.olt-toggle:hover {
-  color: var(--olt-text);
-  background: var(--olt-surface-2);
-}
-
-.olt-toggle--active {
-  background: var(--olt-navy-900);
-  color: var(--olt-white);
-}
-
-.olt-toggle--active:hover {
-  background: var(--olt-navy-800);
-  color: var(--olt-white);
+.olt-toggle[aria-pressed="false"]:hover {
+  color: var(--olt-text-2);
 }
 
 .olt-toggle:focus-visible {
-  outline: 2px solid var(--olt-blue-500);
-  outline-offset: -1px;
+  outline: 2px solid var(--olt-brand-blue);
+  outline-offset: 1px;
+  border-radius: var(--olt-radius-pill);
 }
 
-/* ============================================
+@media (prefers-reduced-motion: reduce) {
+  .olt-toggle-pill {
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    CHART
-   ============================================ */
+   Recharts AreaChart container and custom tooltip.
+   Height fixed at 280px desktop, 200px mobile.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-chart {
   margin: 0;
-  padding: var(--olt-2) 0;
+  padding: var(--olt-space-2) 0;
   background: transparent;
   min-height: 280px;
 }
@@ -245,22 +356,31 @@
   background: var(--olt-tooltip-bg);
   color: var(--olt-tooltip-text);
   border-radius: var(--olt-radius-sm);
-  padding: var(--olt-2) var(--olt-3);
+  padding: var(--olt-space-2) var(--olt-space-3);
   box-shadow: var(--olt-shadow-md);
   font-size: 12px;
   line-height: 1.4;
+  pointer-events: none;
+}
+
+/* Smooth tooltip position transitions */
+.recharts-tooltip-wrapper {
+  transition:
+    transform 80ms ease-out,
+    opacity 120ms ease-out !important;
+  pointer-events: none;
 }
 
 .olt-chart-tooltip-date {
   font-weight: 700;
-  margin-bottom: var(--olt-1);
+  margin-bottom: var(--olt-space-1);
   opacity: 0.9;
 }
 
 .olt-chart-tooltip-row {
   display: flex;
   justify-content: space-between;
-  gap: var(--olt-3);
+  gap: var(--olt-space-3);
   align-items: center;
 }
 
@@ -272,9 +392,11 @@
   font-weight: 700;
 }
 
-/* ============================================
+/* ═══════════════════════════════════════════════════════════════════════════
    PRIMARY CTA BUTTON
-   ============================================ */
+   Blue-to-green gradient "View Tickets" button.
+   Desktop: in header. Mobile: full-width at bottom.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-btn-primary {
   display: inline-flex;
@@ -290,33 +412,37 @@
   letter-spacing: 0.5px;
   cursor: pointer;
   text-decoration: none;
-  background: linear-gradient(to right, #24a8e0, #4fce63);
+  background: var(--olt-cta-gradient);
   color: var(--olt-white);
-  transition: opacity 0.2s ease;
+  transition: box-shadow var(--olt-transition-smooth);
   white-space: nowrap;
+  box-shadow: var(--olt-cta-shadow);
 }
 
 .olt-btn-primary:hover {
-  opacity: 0.9;
+  box-shadow: var(--olt-cta-shadow-hover);
   text-decoration: none;
 }
 
+.olt-btn-primary:active {
+  box-shadow: var(--olt-cta-shadow);
+}
+
 .olt-btn-primary:focus-visible {
-  outline: 2px solid var(--olt-blue-500);
+  outline: 2px solid var(--olt-brand-blue);
   outline-offset: 2px;
 }
 
 a.olt-btn-primary,
 a.olt-btn-primary:hover {
   color: var(--olt-white);
+  text-decoration: none;
 }
 
-/* Header CTA - desktop only */
 .olt-header-cta {
   display: block;
 }
 
-/* Mobile CTA - mobile only */
 .olt-mobile-cta {
   display: none;
 }
@@ -325,16 +451,17 @@ a.olt-btn-primary:hover {
   width: 100%;
 }
 
-/* ============================================
+/* ═══════════════════════════════════════════════════════════════════════════
    FOOTER
-   ============================================ */
+   "Updated" timestamp display.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-footer {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: var(--olt-3);
-  padding-top: var(--olt-2);
+  gap: var(--olt-space-3);
+  padding-top: var(--olt-space-2);
 }
 
 .olt-timestamp {
@@ -343,9 +470,10 @@ a.olt-btn-primary:hover {
   margin: 0;
 }
 
-/* ============================================
-   STATES: Loading, Error, Event Ended
-   ============================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   UI STATES
+   Loading skeleton, error message, and event-ended notice.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-skeleton {
   background: linear-gradient(
@@ -376,7 +504,7 @@ a.olt-btn-primary:hover {
   background: var(--olt-danger-bg);
   border: 1px solid var(--olt-danger);
   border-radius: var(--olt-radius-sm);
-  padding: var(--olt-3);
+  padding: var(--olt-space-3);
   color: var(--olt-danger);
   font-size: 14px;
   line-height: 1.5;
@@ -390,53 +518,74 @@ a.olt-btn-primary:hover {
 .olt-event-ended-notice {
   background: var(--olt-surface-2);
   border-radius: var(--olt-radius-sm);
-  padding: var(--olt-3);
+  padding: var(--olt-space-3);
   text-align: center;
   color: var(--olt-muted);
   font-size: 14px;
 }
 
-/* ============================================
-   RESPONSIVE: Tablet
-   ============================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE: Tablet (max-width: 860px)
+   Reduce padding at tablet breakpoint.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 860px) {
   .olt-pricing-embed {
-    padding: var(--olt-4);
+    padding: var(--olt-space-4);
   }
 }
 
-/* ============================================
-   RESPONSIVE: Mobile
-   ============================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE: Mobile (max-width: 480px)
+   Stacked layout, compact spacing, badge moves next to title,
+   CTA becomes full-width at bottom.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 480px) {
   .olt-pricing-embed {
-    padding: var(--olt-3);
-    gap: var(--olt-3);
+    padding: var(--olt-space-3);
+    gap: var(--olt-space-3);
   }
 
-  /* Header stacks */
   .olt-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--olt-2);
+    gap: var(--olt-space-2);
   }
 
-  .olt-header-right {
+  .olt-header-left {
     width: 100%;
+  }
+
+  .olt-title-row {
     justify-content: space-between;
+    width: 100%;
   }
 
   .olt-title {
     font-size: 16px;
+    flex: 1;
+    min-width: 0;
   }
 
-  /* Status bar stacks */
+  .olt-change {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .olt-change--mobile {
+    display: inline-flex;
+  }
+
+  .olt-change--desktop {
+    display: none;
+  }
+
   .olt-status-bar {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--olt-2);
+    gap: var(--olt-space-2);
   }
 
   .olt-stats {
@@ -457,7 +606,6 @@ a.olt-btn-primary:hover {
     font-size: 11px;
   }
 
-  /* Chart compact */
   .olt-chart {
     min-height: 200px;
   }
@@ -466,7 +614,6 @@ a.olt-btn-primary:hover {
     height: 200px;
   }
 
-  /* CTA swap */
   .olt-header-cta {
     display: none;
   }
@@ -476,9 +623,10 @@ a.olt-btn-primary:hover {
   }
 }
 
-/* ============================================
+/* ═══════════════════════════════════════════════════════════════════════════
    UTILITIES
-   ============================================ */
+   Helper classes for visibility and accessibility.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 .olt-hidden {
   display: none !important;

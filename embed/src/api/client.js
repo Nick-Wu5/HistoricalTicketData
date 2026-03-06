@@ -198,6 +198,35 @@ async function fetchChartDataDaily(teEventId) {
 }
 
 /**
+ * Threshold for switching from hourly to daily data in all-time view.
+ * If less than this many days of daily data exist, use hourly instead.
+ */
+const ALL_TIME_DAILY_THRESHOLD = 7;
+
+/**
+ * Fetch chart data for all-time view with smart aggregation.
+ * Uses hourly data if <7 days exist, daily otherwise.
+ * @param {number} teEventId
+ * @returns {Promise<ChartDataPoint[]>}
+ */
+async function fetchChartDataAllTime(teEventId) {
+  // First, fetch daily data to check history length
+  const dailyData = await fetchChartDataDaily(teEventId);
+
+  // If we have enough daily data, use it
+  if (dailyData.length >= ALL_TIME_DAILY_THRESHOLD) {
+    return dailyData;
+  }
+
+  // Otherwise, fetch hourly data for better density
+  // Use 168 hours (7 days) to ensure we capture all early history
+  const hourlyData = await fetchChartDataHourly(teEventId, 168);
+
+  // Return hourly if it has more data points, otherwise fall back to daily
+  return hourlyData.length > dailyData.length ? hourlyData : dailyData;
+}
+
+/**
  * Check if an event has ended based on its metadata.
  * @param {EventMetadata} event
  * @returns {boolean}
@@ -337,10 +366,11 @@ export async function fetchWidgetData({
     const eventEnded = checkEventEnded(event);
 
     // Fetch chart data based on time range
+    // All-time view uses smart selection: hourly if <7 days, daily otherwise
     const chartData =
       timeRange === "3day"
         ? await fetchChartDataHourly(teEventId)
-        : await fetchChartDataDaily(teEventId);
+        : await fetchChartDataAllTime(teEventId);
 
     return {
       event,
@@ -362,7 +392,8 @@ export async function fetchWidgetData({
 }
 
 /**
- * Fetch only chart data (for time range changes without refetching metadata).
+ * Fetch only chart data. Standalone API for optional use (e.g. chart-only views).
+ * App uses fetchWidgetData which includes chart data.
  *
  * @param {Object} options
  * @param {string|number} options.eventId
@@ -389,9 +420,10 @@ export async function fetchChartData({
   }
 
   // Real mode
+  // All-time view uses smart selection: hourly if <7 days, daily otherwise
   return timeRange === "3day"
     ? fetchChartDataHourly(teEventId)
-    : fetchChartDataDaily(teEventId);
+    : fetchChartDataAllTime(teEventId);
 }
 
 /**

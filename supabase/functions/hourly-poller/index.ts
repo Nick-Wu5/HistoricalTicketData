@@ -5,16 +5,16 @@ import type {
   TablesUpdate,
 } from "../../database.types.ts";
 import { TicketEvolutionClient } from "@shared/te-api.ts";
-import { aggregatePrices } from "@shared/utils.ts";
+import {
+  aggregatePricesWithDiagnostics,
+  type DiagnosticCounters,
+} from "@shared/utils.ts";
 import {
   runHourlyPollerCore,
   type SupabaseLike,
   type TeClientLike,
 } from "./core.ts";
-import {
-  acquireLockOrSkip,
-  createSupabaseLockAdapter,
-} from "./lock.ts";
+import { acquireLockOrSkip, createSupabaseLockAdapter } from "./lock.ts";
 
 // --- Configuration ---
 const BATCH_SIZE = 10; // Events processed concurrently per batch
@@ -126,6 +126,9 @@ type ProcessEventResult = {
   avg_price: number | null;
   max_price: number | null;
   error: string | null;
+  // Diagnostic fields for debugging skipped events
+  skip_reason?: string | null;
+  diagnostics?: DiagnosticCounters;
 };
 
 /**
@@ -157,7 +160,20 @@ async function processEvent(
       `[${event.title}] Fetched ${listings.length} listings, data hash: ${dataHash}`,
     );
 
-    const aggregates = aggregatePrices(listings); // Filter + min/avg/max
+    // Aggregate prices with diagnostic counters for debugging
+    const { aggregates, diagnostics, skip_reason } =
+      aggregatePricesWithDiagnostics(listings);
+
+    // Log diagnostic summary when skipped
+    if (!aggregates) {
+      console.log(
+        `[${event.title}] Skip reason: ${skip_reason} | ` +
+          `raw=${diagnostics.raw_listing_count}, ` +
+          `event=${diagnostics.event_listing_count}, ` +
+          `qty=${diagnostics.quantity_match_count}, ` +
+          `buyable=${diagnostics.buyable_listing_count}`,
+      );
+    }
 
     // Compare with previous hour's data (if available) for diagnostics
     const { data: previousHourData } = await supabase
@@ -223,7 +239,7 @@ async function processEvent(
         );
       }
 
-      // Log skipped event (poller_run_events)
+      // Log skipped event (poller_run_events) with diagnostic data
       const pollerRunEventRow = {
         hour_bucket: hourBucket,
         te_event_id: event.te_event_id,
@@ -233,7 +249,13 @@ async function processEvent(
         avg_price: null,
         max_price: null,
         error: "no_eligible_listings",
-      } satisfies TablesInsert<"poller_run_events">;
+        // Diagnostic counters
+        raw_listing_count: diagnostics.raw_listing_count,
+        event_listing_count: diagnostics.event_listing_count,
+        quantity_match_count: diagnostics.quantity_match_count,
+        buyable_listing_count: diagnostics.buyable_listing_count,
+        skip_reason: skip_reason,
+      };
 
       const { error: logRunEventError } = await supabase
         .from("poller_run_events")
@@ -257,6 +279,8 @@ async function processEvent(
         avg_price: null,
         max_price: null,
         error: "no_eligible_listings",
+        skip_reason: skip_reason,
+        diagnostics,
       };
     }
 
@@ -283,7 +307,7 @@ async function processEvent(
       );
     }
 
-    // Log successful event (poller_run_events)
+    // Log successful event (poller_run_events) with diagnostic data
     const pollerRunEventRow = {
       hour_bucket: hourBucket,
       te_event_id: event.te_event_id,
@@ -293,7 +317,13 @@ async function processEvent(
       avg_price: aggregates.avg_price,
       max_price: aggregates.max_price,
       error: null,
-    } satisfies TablesInsert<"poller_run_events">;
+      // Diagnostic counters (for visibility even on success)
+      raw_listing_count: diagnostics.raw_listing_count,
+      event_listing_count: diagnostics.event_listing_count,
+      quantity_match_count: diagnostics.quantity_match_count,
+      buyable_listing_count: diagnostics.buyable_listing_count,
+      skip_reason: null,
+    };
 
     const { error: logRunEventError } = await supabase
       .from("poller_run_events")
@@ -317,6 +347,8 @@ async function processEvent(
       avg_price: aggregates.avg_price,
       max_price: aggregates.max_price,
       error: null,
+      skip_reason: null,
+      diagnostics,
     };
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));

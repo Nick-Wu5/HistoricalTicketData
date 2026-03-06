@@ -22,6 +22,14 @@ type ProcessEventResult = {
   avg_price: number | null;
   max_price: number | null;
   error: string | null;
+  // Diagnostic fields for debugging skipped events
+  skip_reason?: string | null;
+  diagnostics?: {
+    raw_listing_count: number;
+    event_listing_count: number;
+    quantity_match_count: number;
+    buyable_listing_count: number;
+  };
 };
 
 export type PollerSummary = {
@@ -129,7 +137,9 @@ function hashListings(listings: unknown[]): string {
     .slice(0, 10)
     .map((l) => {
       const listing = l as { id?: unknown; retail_price?: unknown };
-      return `${String(listing.id || "")}:${String(listing.retail_price || "")}`;
+      return `${String(listing.id || "")}:${
+        String(listing.retail_price || "")
+      }`;
     })
     .join(",");
 
@@ -168,7 +178,9 @@ async function fetchWithRetry<T>(
 
       const delay = 1000 * Math.pow(2, attempt);
       console.log(
-        `[${eventTitle}] Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`,
+        `[${eventTitle}] Retry attempt ${
+          attempt + 1
+        }/${maxRetries} after ${delay}ms`,
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
@@ -203,9 +215,13 @@ async function processEvent(
       listings as Parameters<typeof aggregatePrices>[0],
     );
 
-    const eventPriceHourly = supabase.from("event_price_hourly") as EventPriceHourlyTable;
+    const eventPriceHourly = supabase.from(
+      "event_price_hourly",
+    ) as EventPriceHourlyTable;
     const { data: previousHourData } = await eventPriceHourly
-      .select("min_price, avg_price, max_price, listing_count, captured_at_hour")
+      .select(
+        "min_price, avg_price, max_price, listing_count, captured_at_hour",
+      )
       .eq("te_event_id", event.te_event_id)
       .order("captured_at_hour", { ascending: false })
       .limit(1)
@@ -216,7 +232,9 @@ async function processEvent(
       const priceChanged = aggregates &&
         previousHourData.min_price !== null &&
         aggregates.min_price !== null &&
-        Math.abs((previousHourData.min_price || 0) - (aggregates.min_price || 0)) >
+        Math.abs(
+            (previousHourData.min_price || 0) - (aggregates.min_price || 0),
+          ) >
           0.01;
 
       console.log(
@@ -247,10 +265,14 @@ async function processEvent(
       };
 
       const { error: upsertHourlyError } = await eventPriceHourly
-        .upsert(eventPriceHourlyRow, { onConflict: "te_event_id,captured_at_hour" });
+        .upsert(eventPriceHourlyRow, {
+          onConflict: "te_event_id,captured_at_hour",
+        });
 
       if (upsertHourlyError) {
-        throw new Error(`Failed to upsert hourly data: ${upsertHourlyError.message}`);
+        throw new Error(
+          `Failed to upsert hourly data: ${upsertHourlyError.message}`,
+        );
       }
 
       const pollerRunEventRow = {
@@ -264,7 +286,9 @@ async function processEvent(
         error: "no_eligible_listings",
       };
 
-      const pollerRunEvents = supabase.from("poller_run_events") as PollerRunEventsTable;
+      const pollerRunEvents = supabase.from(
+        "poller_run_events",
+      ) as PollerRunEventsTable;
       await pollerRunEvents
         .upsert(pollerRunEventRow, { onConflict: "hour_bucket,te_event_id" });
 
@@ -289,10 +313,14 @@ async function processEvent(
     };
 
     const { error: upsertHourlyError } = await eventPriceHourly
-      .upsert(eventPriceHourlyRow, { onConflict: "te_event_id,captured_at_hour" });
+      .upsert(eventPriceHourlyRow, {
+        onConflict: "te_event_id,captured_at_hour",
+      });
 
     if (upsertHourlyError) {
-      throw new Error(`Failed to upsert hourly data: ${upsertHourlyError.message}`);
+      throw new Error(
+        `Failed to upsert hourly data: ${upsertHourlyError.message}`,
+      );
     }
 
     const pollerRunEventRow = {
@@ -306,7 +334,9 @@ async function processEvent(
       error: null,
     };
 
-    const pollerRunEvents = supabase.from("poller_run_events") as PollerRunEventsTable;
+    const pollerRunEvents = supabase.from(
+      "poller_run_events",
+    ) as PollerRunEventsTable;
     await pollerRunEvents
       .upsert(pollerRunEventRow, { onConflict: "hour_bucket,te_event_id" });
 
@@ -334,7 +364,9 @@ async function processEvent(
       error: error.message,
     };
 
-    const pollerRunEvents = supabase.from("poller_run_events") as PollerRunEventsTable;
+    const pollerRunEvents = supabase.from(
+      "poller_run_events",
+    ) as PollerRunEventsTable;
     await pollerRunEvents
       .upsert(pollerRunEventRow, { onConflict: "hour_bucket,te_event_id" });
 
@@ -422,10 +454,10 @@ export async function runHourlyPollerCore(opts: {
     if (Number.isNaN(endsAtMs)) return true;
     return endsAtMs > nowMs;
   }).map((event) => ({
-      te_event_id: event.te_event_id,
-      title: event.title,
-      olt_url: event.olt_url ?? undefined,
-    }));
+    te_event_id: event.te_event_id,
+    title: event.title,
+    olt_url: event.olt_url ?? undefined,
+  }));
 
   const pollerRuns = supabase.from("poller_runs") as PollerRunsTable;
   await pollerRuns
@@ -464,7 +496,8 @@ export async function runHourlyPollerCore(opts: {
 
   const results = await processBatch(events, hourBucket, teClient, supabase);
 
-  const eventsSucceeded = results.filter((r) => r.status === "succeeded").length;
+  const eventsSucceeded =
+    results.filter((r) => r.status === "succeeded").length;
   const eventsFailed = results.filter((r) => r.status === "failed").length;
   const eventsSkipped = results.filter((r) => r.status === "skipped").length;
   const totalDurationMs = Date.now() - startTime;
@@ -502,4 +535,3 @@ export async function runHourlyPollerCore(opts: {
     total_duration_ms: totalDurationMs,
   };
 }
-

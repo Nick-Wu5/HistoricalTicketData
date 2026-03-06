@@ -1,392 +1,294 @@
-# Historical Ticket Pricing Embed — Styling Guide (OnlyLocalTickets)
+# Historical Ticket Pricing Embed — Styling Guide (Source of Truth)
 
-This document defines **visual + UX styling conventions** for the embeddable “Historical Ticket Pricing” widget so it feels native on OnlyLocalTickets (OLT) pages while staying safe to embed (no global CSS collisions).
+This document is the **source of truth** for the embeddable Historical Ticket Pricing widget. It reflects the live implementation in:
+
+- **`embed/src/styles/tokens.css`** — design tokens (CSS custom properties)
+- **`embed/src/styles/components.css`** — component styles
+
+When in doubt, the CSS files in `embed/src/styles/` are authoritative; this doc summarizes them for maintainers and design reference.
 
 ---
 
 ## Goals
 
-1. **Blend in with OLT**: clean white surfaces, subtle borders, bold headings, “price green” for key numbers.
-2. **Embed-safe**: styles should not leak to the host page and host page styles should not break the embed.
-3. **Readable + fast**: system font stack, minimal layout shifts, responsive.
+1. **Blend in with OLT**: Clean white surfaces, subtle borders, bold headings, brand blue/navy for emphasis.
+2. **Embed-safe**: Styles must not leak to the host page; host styles must not break the embed. Use Shadow DOM and scoped selectors.
+3. **Readable + fast**: System font stack, minimal layout shifts, responsive.
 
 ---
 
-## Brand / UI Tokens
+## Design Tokens
 
-Use these as CSS variables inside the widget root.
+Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--olt-[category]-[variant]`.
 
-```css
-:root {
-  /* Typography */
-  --olt-font-sans:
-    system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  --olt-font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+### Typography
 
-  /* Core colors (sampled from OLT screenshots) */
-  --olt-navy-900: #203040; /* primary header/nav vibe */
-  --olt-navy-800: #203060; /* darker accent */
-  --olt-blue-500: #50a0d0; /* logo/brand blue */
-  --olt-green-500: #70b060; /* price button/primary positive */
-  --olt-bg: #ffffff;
-  --olt-surface: #ffffff;
-  --olt-surface-2: #f7f8fa; /* soft gray panel */
-  --olt-border: #e6e8ee;
-  --olt-text: #111827;
-  --olt-text-2: #4b5563;
-  --olt-muted: #6b7280;
+| Token | Value |
+|-------|--------|
+| `--olt-font-sans` | system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", Arial, emoji stacks, sans-serif |
+| `--olt-font-mono` | ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace |
 
-  /* States */
-  --olt-danger: #dc2626;
-  --olt-warning: #f59e0b;
-  --olt-success: #16a34a;
-  --olt-link: #1f4fd6;
+### Brand Colors
 
-  /* Radii + shadows (OLT is mostly squared-soft) */
-  --olt-radius-sm: 6px;
-  --olt-radius-md: 10px;
-  --olt-radius-lg: 14px;
-  --olt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --olt-shadow-md: 0 2px 10px rgba(0, 0, 0, 0.08);
+| Token | Value | Use |
+|-------|--------|-----|
+| `--olt-brand-blue` | #24a8df | Accent: focus rings, chart hover, interactions |
+| `--olt-brand-navy` | #2c356d | Chart line, active toggles, emphasis |
+| `--olt-brand-green` | #4fce63 | CTA gradient end |
 
-  /* Spacing */
-  --olt-1: 4px;
-  --olt-2: 8px;
-  --olt-3: 12px;
-  --olt-4: 16px;
-  --olt-5: 20px;
-  --olt-6: 24px;
+### Surfaces & Backgrounds
 
-  /* Chart */
-  --olt-gridline: rgba(17, 24, 39, 0.08);
-  --olt-tooltip-bg: #111827;
-  --olt-tooltip-text: #ffffff;
-}
-```
+| Token | Value |
+|-------|--------|
+| `--olt-surface` | #ffffff |
+| `--olt-surface-2` | #f7f8fa |
+| `--olt-white` | #ffffff |
 
-> Notes:
->
-> - The **nav/header** in the screenshot is a deep navy (`#203040`).
-> - The listing “price” pill/button is a **soft green** (`#70B060`).
-> - The logo’s main blue is around `#50A0D0`.
+### Text
 
----
+| Token | Value |
+|-------|--------|
+| `--olt-text` | #111827 |
+| `--olt-text-2` | #4b5563 |
+| `--olt-muted` | #6b7280 |
 
-## Embed Safety (don’t break the host page)
+### Borders
 
-### Strongly recommended: Shadow DOM
+| Token | Value |
+|-------|--------|
+| `--olt-border` | #e6e8ee |
 
-If your embed runtime is under your control, mount the widget in a ShadowRoot:
+### Semantic (status)
 
-- prevents host CSS from accidentally restyling your components
-- prevents your CSS from leaking into the host page
+| Token | Value |
+|-------|--------|
+| `--olt-success` | #16a34a |
+| `--olt-success-bg` | rgba(22, 163, 74, 0.1) |
+| `--olt-danger` | #dc2626 |
+| `--olt-danger-bg` | rgba(220, 38, 38, 0.1) |
 
-If not using Shadow DOM, **scope everything** under a root class like `.olt-pricing-embed`.
+### Radii
 
-### Reset locally (not globally)
+| Token | Value |
+|-------|--------|
+| `--olt-radius-sm` | 6px |
+| `--olt-radius-md` | 10px |
+| `--olt-radius-pill` | 999px |
 
-Avoid global resets (`* {}` at document level). If you need consistent defaults, scope them:
+### Shadows
 
-```css
-.olt-pricing-embed,
-.olt-pricing-embed * {
-  box-sizing: border-box;
-  font-family: var(--olt-font-sans);
-}
-```
+| Token | Value |
+|-------|--------|
+| `--olt-shadow-sm` | 0 1px 2px rgba(0, 0, 0, 0.06) |
+| `--olt-shadow-md` | 0 2px 10px rgba(0, 0, 0, 0.08) |
+| `--olt-shadow-pill` | 0 1px 3px rgba(0, 0, 0, 0.1) |
 
----
+### Spacing (4px base)
 
-## Layout & Component Standards
+| Token | Value |
+|-------|--------|
+| `--olt-space-1` … `--olt-space-6` | 4px, 8px, 12px, 16px, 20px, 24px |
 
-### Container
+### Transitions
 
-- White surface with subtle border
-- Slight shadow only if placed on white page (optional)
+| Token | Value |
+|-------|--------|
+| `--olt-transition-fast` | 150ms ease |
+| `--olt-transition-base` | 200ms ease |
+| `--olt-transition-smooth` | 250ms cubic-bezier(0.4, 0, 0.2, 1) |
 
-```css
-.olt-pricing-embed {
-  color: var(--olt-text);
-  background: var(--olt-surface);
-  border: 1px solid var(--olt-border);
-  border-radius: var(--olt-radius-md);
-  box-shadow: var(--olt-shadow-sm);
-  padding: var(--olt-5);
-}
-```
+### Chart
 
-### Header block
+| Token | Value |
+|-------|--------|
+| `--olt-chart-line` | var(--olt-brand-navy) |
+| `--olt-chart-accent` | var(--olt-brand-blue) |
+| `--olt-chart-grid` | rgba(0, 0, 0, 0.08) |
+| `--olt-tooltip-bg` | #111827 |
+| `--olt-tooltip-text` | #ffffff |
 
-- Title: bold, slightly condensed feel (OLT tends to strong headings)
-- Subtitle: muted text
+### CTA Button
 
-```css
-.olt-embed-title {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.2px;
-  margin: 0 0 var(--olt-2) 0;
-}
-
-.olt-embed-subtitle {
-  font-size: 13px;
-  color: var(--olt-text-2);
-  margin: 0 0 var(--olt-4) 0;
-}
-```
-
-### KPI row (Min / Avg / Max / 24h change)
-
-- Use “chips/cards” with light gray background
-
-```css
-.olt-kpis {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--olt-3);
-  margin-bottom: var(--olt-5);
-}
-
-.olt-kpi {
-  background: var(--olt-surface-2);
-  border: 1px solid var(--olt-border);
-  border-radius: var(--olt-radius-sm);
-  padding: var(--olt-3);
-}
-
-.olt-kpi-label {
-  font-size: 11px;
-  color: var(--olt-muted);
-  margin-bottom: var(--olt-1);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.olt-kpi-value {
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.olt-kpi-value--price {
-  color: var(--olt-green-500);
-}
-
-.olt-kpi-value--down {
-  color: var(--olt-danger);
-}
-.olt-kpi-value--up {
-  color: var(--olt-success);
-}
-```
-
-Responsive behavior:
-
-- ≤ 860px: 2 columns
-- ≤ 480px: 1 column
-
-```css
-@media (max-width: 860px) {
-  .olt-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 480px) {
-  .olt-kpis {
-    grid-template-columns: 1fr;
-  }
-}
-```
-
-### Tabs / Range selector (24h / 3d / All-time)
-
-OLT uses clean controls; go for pill buttons with borders.
-
-```css
-.olt-tabs {
-  display: inline-flex;
-  border: 1px solid var(--olt-border);
-  border-radius: var(--olt-radius-sm);
-  overflow: hidden;
-  background: var(--olt-bg);
-}
-
-.olt-tab {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--olt-text-2);
-  cursor: pointer;
-}
-
-.olt-tab[aria-selected="true"] {
-  background: var(--olt-navy-900);
-  color: #fff;
-}
-```
-
-### Primary CTA button (optional)
-
-If you include a “View Tickets” button, match the site vibe:
-
-- navy button, white text
-- hover slightly darker
-
-```css
-.olt-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 14px;
-  border-radius: var(--olt-radius-sm);
-  border: 1px solid transparent;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.olt-btn--navy {
-  background: var(--olt-navy-900);
-  color: #fff;
-}
-.olt-btn--navy:hover {
-  filter: brightness(0.95);
-}
-
-.olt-btn--outline {
-  background: transparent;
-  border-color: var(--olt-border);
-  color: var(--olt-text);
-}
-```
-
-### Chart frame
-
-- keep the chart on a white surface
-- add a soft border around the plot area
-
-```css
-.olt-chart {
-  margin-top: var(--olt-4);
-  padding: var(--olt-4);
-  border: 1px solid var(--olt-border);
-  border-radius: var(--olt-radius-sm);
-  background: var(--olt-bg);
-}
-```
-
-### Tooltip
-
-Dark tooltip with white text, small and readable.
-
-```css
-.olt-tooltip {
-  background: var(--olt-tooltip-bg);
-  color: var(--olt-tooltip-text);
-  border-radius: 8px;
-  padding: 10px 12px;
-  box-shadow: var(--olt-shadow-md);
-  font-size: 12px;
-}
-```
+| Token | Value |
+|-------|--------|
+| `--olt-cta-gradient` | linear-gradient(to right, var(--olt-brand-blue), var(--olt-brand-green)) |
+| `--olt-cta-shadow` | 0 2px 8px rgba(36, 168, 224, 0.2) |
+| `--olt-cta-shadow-hover` | 0 4px 16px rgba(36, 168, 224, 0.35) |
 
 ---
 
-## Data Formatting Rules (visual)
+## Embed Safety
 
-- Currency: `"$1,234"` or `"$1,234.56"` (pick one; OLT listing UI uses cents).
-- Always label prices **“Per Ticket”** if that’s what you’re showing.
-- Listing count: show as `27 listings` (lowercase “listings” like site panels).
-
----
-
-## Loading / Empty / Error States
-
-### Loading skeleton
-
-Prefer skeleton blocks to avoid layout jump.
-
-- KPIs: gray rectangles where values will go
-- Chart: a 160–220px gray panel
-
-### No data
-
-When there are zero eligible listings:
-
-- keep the widget visible
-- show: “No eligible listings found for this event.”
-
-### Error
-
-- small red label + optional “Try again”
-- do not dump stack traces into the UI
+- **Shadow DOM**: The widget is mounted inside a ShadowRoot. Tokens are on `:host`; all component styles are scoped under `.olt-pricing-embed`. No global resets; box-sizing and font are applied only within the embed.
+- **Class prefix**: All embed classes use the `.olt-` prefix to avoid collisions with host page CSS.
 
 ---
 
-## Accessibility
+## Component Structure & Classes
 
-- All buttons must be keyboard focusable.
-- `aria-selected` for tabs.
-- Color is not the only indicator for up/down change (include ▲/▼ or text).
+### Root
+
+- **`.olt-pricing-embed`** — Root container. Flex column, gap, border, radius, shadow, padding. Max-width 800px. Theme modifier: `.theme-light` / `.theme-dark` (class on root).
+
+### Header
+
+- **`.olt-header`** — Flex row, space-between, wrap; border-bottom.
+- **`.olt-header-left`** — Column for title + subtitle.
+- **`.olt-title-row`** — Row for title + mobile 24h badge.
+- **`.olt-header-right`** — CTA + desktop 24h badge.
+- **`.olt-title`** — Event title (18px, bold). Links use brand navy.
+- **`.olt-subtitle`** — Event date/time (13px, muted).
+
+### 24h Change Badge
+
+- **`.olt-change`** — Badge container (inline-flex, padding, radius).
+- **`.olt-change--up`** — Green background (success).
+- **`.olt-change--down`** — Red background (danger).
+- **`.olt-change--mobile`** — Shown only on mobile (≤480px).
+- **`.olt-change--desktop`** — Shown only on desktop; hidden on mobile.
+- **`.olt-change-arrow`**, **`.olt-change-label`** — Inner pieces.
+
+### Status Bar (stats + controls)
+
+- **`.olt-status-bar`** — Flex row; contains stats and control groups.
+- **`.olt-stats`** — Inline row of MIN / AVG / MAX.
+- **`.olt-stat-item`** — Single stat; inactive state uses opacity 0.5.
+- **`.olt-stat-item--active`** — Full opacity; price and label use brand navy.
+- **`.olt-stat-price`**, **`.olt-stat-label`** — Value and label (e.g. "AVG").
+
+### Toggle Controls
+
+- **`.olt-controls`** — Wrapper for toggle groups.
+- **`.olt-toggle-group`** — Pill container (border, radius-pill, surface-2). Uses `data-active-index="0"|"1"|"2"` for sliding pill position.
+- **`.olt-toggle-group--metric`** — 3 columns (MIN / AVG / MAX).
+- **`.olt-toggle-group--range`** — 2 columns (3 DAY / All).
+- **`.olt-toggle-pill`** — Sliding white pill (shadow, transition). Position driven by `data-active-index`.
+- **`.olt-toggle`** — Button: transparent bg, muted text; `aria-pressed="true"` → brand navy. Focus-visible: brand blue outline.
+
+### Chart
+
+- **`.olt-chart`** — Chart section (min-height 280px; 200px on mobile).
+- **`.olt-chart-wrapper`** — Wrapper for Recharts (height 280px / 200px).
+- **`.olt-chart-tooltip`** — Custom tooltip (dark bg, light text, radius, shadow).
+- **`.olt-chart-tooltip-date`**, **`.olt-chart-tooltip-row`**, **`.olt-chart-tooltip-label`**, **`.olt-chart-tooltip-value`** — Tooltip structure.
+
+### Primary CTA
+
+- **`.olt-btn-primary`** — Gradient button (brand blue → green), white text, shadow. Used for “VIEW TICKETS”.
+- **`.olt-header-cta`** — Shown on desktop; hidden on mobile.
+- **`.olt-mobile-cta`** — Hidden on desktop; full-width CTA block on mobile (≤480px).
+
+### Footer
+
+- **`.olt-footer`** — Timestamp row.
+- **`.olt-timestamp`** — “Updated …” muted text (11px).
+
+### UI States
+
+- **`.olt-skeleton`** — Loading shimmer (gradient animation).
+- **`.olt-skeleton-chart`** — Chart placeholder height (300px).
+- **`.olt-error`** — Error message (danger bg/border, padding).
+- **`.olt-event-ended-notice`** — “This event has ended” (surface-2, muted).
+
+### Utilities
+
+- **`.olt-hidden`** — display: none !important
+- **`.olt-visually-hidden`** — Screen-reader-only clip
 
 ---
 
-## Recommended DOM Structure (for consistent styling)
+## Responsive Breakpoints
+
+| Breakpoint | Behavior |
+|------------|----------|
+| **860px** | Root padding reduced to `--olt-space-4`. |
+| **480px** | Header stacks; title row full width; mobile badge visible, desktop badge hidden; status bar stacks; chart height 200px; header CTA hidden, mobile CTA visible; compact toggle padding. |
+
+---
+
+## DOM Structure (reference)
 
 ```html
-<div class="olt-pricing-embed">
-  <header>
-    <h3 class="olt-embed-title">Ticket Price History</h3>
-    <p class="olt-embed-subtitle">Updates hourly • Based on current listings</p>
+<div class="olt-pricing-embed theme-light">
+  <header class="olt-header">
+    <div class="olt-header-left">
+      <div class="olt-title-row">
+        <h2 class="olt-title"><a href="...">Event Title</a></h2>
+        <span class="olt-change olt-change--mobile olt-change--up">…</span>
+      </div>
+      <span class="olt-subtitle">Date/time</span>
+    </div>
+    <div class="olt-header-right">
+      <span class="olt-change olt-change--desktop olt-change--up">…</span>
+      <a href="..." class="olt-btn-primary olt-header-cta">VIEW TICKETS</a>
+    </div>
   </header>
 
-  <section class="olt-kpis">
-    <div class="olt-kpi">
-      <div class="olt-kpi-label">Min</div>
-      <div class="olt-kpi-value olt-kpi-value--price">$1,234.56</div>
+  <div class="olt-status-bar">
+    <div class="olt-stats">
+      <span class="olt-stat-item olt-stat-item--active">…</span>
+      <!-- MIN / AVG / MAX -->
     </div>
-    <!-- Avg / Max / 24h -->
-  </section>
-
-  <div class="olt-tabs" role="tablist" aria-label="Price range">
-    <button class="olt-tab" aria-selected="true">24h</button>
-    <button class="olt-tab" aria-selected="false">3d</button>
-    <button class="olt-tab" aria-selected="false">All</button>
+    <div class="olt-controls">
+      <div class="olt-toggle-group olt-toggle-group--metric" data-active-index="1">
+        <span class="olt-toggle-pill" aria-hidden="true"></span>
+        <button class="olt-toggle" aria-pressed="true">MIN</button>
+        <button class="olt-toggle" aria-pressed="false">AVG</button>
+        <button class="olt-toggle" aria-pressed="false">MAX</button>
+      </div>
+      <div class="olt-toggle-group olt-toggle-group--range" data-active-index="0">
+        <span class="olt-toggle-pill" aria-hidden="true"></span>
+        <button class="olt-toggle" aria-pressed="true">3 DAY</button>
+        <button class="olt-toggle" aria-pressed="false">All</button>
+      </div>
+    </div>
   </div>
 
-  <section class="olt-chart">
-    <!-- Recharts canvas -->
-  </section>
+  <div class="olt-chart">
+    <div class="olt-chart-wrapper"><!-- Recharts --></div>
+  </div>
 
-  <footer style="margin-top: 12px; display:flex; gap:12px; align-items:center;">
-    <a class="olt-btn olt-btn--navy" href="#">View Tickets</a>
-    <span style="font-size:12px; color: var(--olt-muted);"
-      >Last updated: 2:00 PM</span
-    >
+  <div class="olt-mobile-cta">
+    <a href="..." class="olt-btn-primary">VIEW TICKETS</a>
+  </div>
+
+  <footer class="olt-footer">
+    <span class="olt-timestamp">Updated …</span>
   </footer>
+
+  <!-- optional -->
+  <div class="olt-event-ended-notice">This event has ended</div>
 </div>
 ```
 
 ---
 
-## Implementation Notes (Vite + embed script)
+## Data Formatting (visual)
 
-- Prefer emitting **one CSS string** injected into the ShadowRoot (or scoped root) at runtime.
-- Avoid relying on host Tailwind. Your widget should be self-contained.
-- Keep class names stable; treat them as part of your embed API.
+- **Currency**: Use `$` + whole number or two decimals (e.g. `$125` or `$125.50`). Widget uses rounded whole dollars in stats/chart.
+- **24h change**: Show as percentage with sign (e.g. `+5.2%`, `-3.1%`). Green for down (good for buyers), red for up.
+- **Labels**: Uppercase for stat labels (MIN, AVG, MAX) and toggle text (3 DAY, All).
 
 ---
 
-## “Close Enough” Visual Checklist
+## Loading / Empty / Error
 
-- [ ] White card with thin border
-- [ ] Bold title + muted subtitle
-- [ ] KPI tiles on light gray background
-- [ ] Navy tab highlight + navy CTA button
-- [ ] No global CSS leakage
+- **Loading**: Use `.olt-skeleton` / `.olt-skeleton-chart`; no layout jump.
+- **No data**: Keep widget visible; show a short message (e.g. “No chart data available”).
+- **Error**: Use `.olt-error`; message + link if appropriate; no stack traces in UI.
+
+---
+
+## Accessibility
+
+- All interactive elements (buttons, links) are focusable. Use `focus-visible` outlines (brand blue).
+- Toggles use `aria-pressed`; 24h change badge can use `aria-label` for the value.
+- Color is not the only indicator for up/down: use arrows (↑/↓) and text.
+
+---
+
+## Implementation Notes
+
+- Styles are injected into the Shadow DOM as a single concatenated string (tokens + components) via `embed/src/bootstrap/styles.js`.
+- Do not rely on host Tailwind or global CSS; the widget is self-contained.
+- Treat class names as part of the embed contract; avoid breaking renames.
