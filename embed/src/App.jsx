@@ -68,7 +68,8 @@ function App({ config }) {
     };
   }, [config.eventId, timeRange, eventEnded]);
 
-  // Format 24h change
+  // 24h change: backend should return null when there is no valid comparison (e.g. not enough
+  // history, or 24h-ago bucket missing). We never show 0% when the backend sends null.
   const formatChange = (value) => {
     if (value == null) return null;
     const sign = value >= 0 ? "+" : "";
@@ -104,6 +105,7 @@ function App({ config }) {
   const eventTitle = currentData?.title || "Event";
   const changeValue = formatChange(currentData?.change_24h);
   const isPositiveChange = currentData?.change_24h >= 0;
+  const show24hNa = currentData != null && currentData.change_24h == null;
 
   const formatEventDate = (dateString) => {
     if (!dateString) return null;
@@ -133,6 +135,7 @@ function App({ config }) {
               value={changeValue}
               isPositive={isPositiveChange}
               visibility="mobile"
+              showNa={show24hNa}
             />
           </div>
           {eventDateTime && (
@@ -145,6 +148,7 @@ function App({ config }) {
             value={changeValue}
             isPositive={isPositiveChange}
             visibility="desktop"
+            showNa={show24hNa}
           />
           <a
             href={eventUrl}
@@ -159,12 +163,15 @@ function App({ config }) {
 
       {/* Stats + controls */}
       <div className="olt-status-bar">
-        <PriceStats
-          min={currentData?.min_price}
-          avg={currentData?.avg_price}
-          max={currentData?.max_price}
-          activeMetric={metric}
-        />
+        <div className="olt-status-left">
+          <div className="olt-stats-note">Live market stats</div>
+          <PriceStats
+            min={currentData?.min_price}
+            avg={currentData?.avg_price}
+            max={currentData?.max_price}
+            activeMetric={metric}
+          />
+        </div>
 
         <div className="olt-controls">
           {/* Price Type Toggle */}

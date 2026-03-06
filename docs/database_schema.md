@@ -59,6 +59,12 @@ This records the per-event outcome for a given poller run (one row per event per
 - **`listing_count`**: How many listings were used to compute the prices.
 - **`min_price`, `avg_price`, `max_price`**: The prices we calculated for this event in this hour.
 - **`error`**: A short error code or message explaining what went wrong when `status = failed` or `skipped`.
+- **Skip diagnostics (when `status = skipped`)**: These counters explain where listings were filtered out so we can debug “no eligible listings” quickly.
+  - **`raw_listing_count`**: Total listings returned from TE API (before filtering).
+  - **`event_listing_count`**: Listings after filtering to `type=event` with valid prices.
+  - **`quantity_match_count`**: Listings after filtering to `available_quantity >= 1` (general market availability).
+  - **`buyable_listing_count`**: Listings after excluding non-buyable notes (rejected/pending/etc.).
+  - **`skip_reason`**: Structured reason (e.g. `no_te_listings`, `no_event_listings`, `no_valid_quantity`, `no_buyable_listings`).
 - **`created_at`**: When this per-event record was written.
 
 ---
@@ -87,31 +93,35 @@ In simple terms: It’s a custom script that runs _inside_ the database instead 
 1. **Speed**: It's much faster to ask the database to "calculate the 3-day view and give me the result" than to fetch thousands of individual rows and calculate it in the browser.
 2. **Simplicity**: Your frontend code (React) just makes one simple call: `get_chart_data_hourly(event_id)`. The database does the heavy lifting of filtering and sorting.
 
-### Our RPC Functions:
+### Our RPC Functions
 
 #### `get_chart_data_hourly(p_te_event_id, p_hours_back)`
 
 - **What it does**: Fetches the hourly prices for a specific event, going back a certain number of hours (used for the "3-day" style view).
 - **Inputs**: The Ticket Evolution event ID and how many hours back to look.
 - **Output**: A clean list of `recorded_at` timestamps and min/avg/max prices, ready to be drawn on the chart.
+- **Null buckets**: For some timestamps there may be **no eligible listings**, so `min_price`, `avg_price`, and/or `max_price` can be `null`. Consumers should treat `null` as **missing data (a gap)**, not `0`, to avoid impossible visuals (e.g. showing `max=0` while `min>0` for the same timestamp).
 
 #### `get_chart_data_daily(p_te_event_id)`
 
 - **What it does**: Fetches every daily summary record for an event from `event_price_daily`.
 - **Inputs**: The Ticket Evolution event ID.
 - **Output**: The `recorded_date` plus min/avg/max prices needed for the "All-Time" view of the chart.
+- **Null buckets**: Same idea as hourly—daily rows may contain `null` metrics if no eligible listings existed for that day. Render as a gap, not `0`.
 
 #### `get_current_prices(p_te_event_id)`
 
 - **What it does**: Returns the latest snapshot of prices for a given event, plus how much they changed in the last 24 hours.
 - **Inputs**: The Ticket Evolution event ID.
 - **Output**: A single row with `min_price`, `avg_price`, `max_price`, `listing_count`, `last_updated`, and `change_24h` (percentage change).
+- **`change_24h` can be null**: When there is no valid 24h comparison point (not enough history, or the 24h‑ago bucket is missing), the backend should return `null`. The frontend should treat this as **N/A**, not `0%`.
 
 #### `get_24h_change(p_te_event_id)`
 
 - **What it does**: Calculates just the 24‑hour price change for an event.
 - **Inputs**: The Ticket Evolution event ID.
 - **Output**: A single number representing the percent change over the last 24 hours.
+- **Invalid comparisons**: If there is no valid comparison point (e.g. not enough history yet, or the ~24h‑ago bucket has no eligible listings), this should return `null` (or `get_current_prices.change_24h` should be `null`). The frontend should treat this as **N/A**, not `0%`.
 
 #### `rollup_hourly_to_daily()`
 

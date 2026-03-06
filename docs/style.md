@@ -23,97 +23,73 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 ### Typography
 
-| Token | Value |
-|-------|--------|
-| `--olt-font-sans` | system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", Arial, emoji stacks, sans-serif |
-| `--olt-font-mono` | ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace |
+- **`--olt-font-sans`**: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", emoji stacks, sans-serif
+- **`--olt-font-mono`**: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace
 
 ### Brand Colors
 
-| Token | Value | Use |
-|-------|--------|-----|
-| `--olt-brand-blue` | #24a8df | Accent: focus rings, chart hover, interactions |
-| `--olt-brand-navy` | #2c356d | Chart line, active toggles, emphasis |
-| `--olt-brand-green` | #4fce63 | CTA gradient end |
+- **`--olt-brand-blue`**: #24a8df (Accent: focus rings, chart hover, interactions)
+- **`--olt-brand-navy`**: #2c356d (Chart line, active toggles, emphasis)
+- **`--olt-brand-green`**: #4fce63 (CTA gradient end)
 
 ### Surfaces & Backgrounds
 
-| Token | Value |
-|-------|--------|
-| `--olt-surface` | #ffffff |
-| `--olt-surface-2` | #f7f8fa |
-| `--olt-white` | #ffffff |
+- **`--olt-surface`**: #ffffff
+- **`--olt-surface-2`**: #f7f8fa
+- **`--olt-white`**: #ffffff
 
 ### Text
 
-| Token | Value |
-|-------|--------|
-| `--olt-text` | #111827 |
-| `--olt-text-2` | #4b5563 |
-| `--olt-muted` | #6b7280 |
+- **`--olt-text`**: #111827
+- **`--olt-text-2`**: #4b5563
+- **`--olt-muted`**: #6b7280
 
 ### Borders
 
-| Token | Value |
-|-------|--------|
-| `--olt-border` | #e6e8ee |
+- **`--olt-border`**: #e6e8ee
 
 ### Semantic (status)
 
-| Token | Value |
-|-------|--------|
-| `--olt-success` | #16a34a |
-| `--olt-success-bg` | rgba(22, 163, 74, 0.1) |
-| `--olt-danger` | #dc2626 |
-| `--olt-danger-bg` | rgba(220, 38, 38, 0.1) |
+- **`--olt-success`**: #16a34a
+- **`--olt-success-bg`**: rgba(22, 163, 74, 0.1)
+- **`--olt-danger`**: #dc2626
+- **`--olt-danger-bg`**: rgba(220, 38, 38, 0.1)
 
 ### Radii
 
-| Token | Value |
-|-------|--------|
-| `--olt-radius-sm` | 6px |
-| `--olt-radius-md` | 10px |
-| `--olt-radius-pill` | 999px |
+- **`--olt-radius-sm`**: 6px
+- **`--olt-radius-md`**: 10px
+- **`--olt-radius-pill`**: 999px
 
 ### Shadows
 
-| Token | Value |
-|-------|--------|
-| `--olt-shadow-sm` | 0 1px 2px rgba(0, 0, 0, 0.06) |
-| `--olt-shadow-md` | 0 2px 10px rgba(0, 0, 0, 0.08) |
-| `--olt-shadow-pill` | 0 1px 3px rgba(0, 0, 0, 0.1) |
+- **`--olt-shadow-sm`**: 0 1px 2px rgba(0, 0, 0, 0.06)
+- **`--olt-shadow-md`**: 0 2px 10px rgba(0, 0, 0, 0.08)
+- **`--olt-shadow-pill`**: 0 1px 3px rgba(0, 0, 0, 0.1)
 
 ### Spacing (4px base)
 
-| Token | Value |
-|-------|--------|
-| `--olt-space-1` … `--olt-space-6` | 4px, 8px, 12px, 16px, 20px, 24px |
+- **`--olt-space-1` … `--olt-space-6`**: 4px, 8px, 12px, 16px, 20px, 24px
 
 ### Transitions
 
-| Token | Value |
-|-------|--------|
-| `--olt-transition-fast` | 150ms ease |
-| `--olt-transition-base` | 200ms ease |
-| `--olt-transition-smooth` | 250ms cubic-bezier(0.4, 0, 0.2, 1) |
+- **`--olt-transition-fast`**: 150ms ease
+- **`--olt-transition-base`**: 200ms ease
+- **`--olt-transition-smooth`**: 250ms cubic-bezier(0.4, 0, 0.2, 1)
 
-### Chart
+### Chart Tokens
 
-| Token | Value |
-|-------|--------|
-| `--olt-chart-line` | var(--olt-brand-navy) |
-| `--olt-chart-accent` | var(--olt-brand-blue) |
-| `--olt-chart-grid` | rgba(0, 0, 0, 0.08) |
-| `--olt-tooltip-bg` | #111827 |
-| `--olt-tooltip-text` | #ffffff |
+- **`--olt-chart-line`**: var(--olt-brand-navy)
+- **`--olt-chart-accent`**: var(--olt-brand-blue)
+- **`--olt-chart-grid`**: rgba(0, 0, 0, 0.08)
+- **`--olt-tooltip-bg`**: #111827
+- **`--olt-tooltip-text`**: #ffffff
 
-### CTA Button
+### CTA Tokens
 
-| Token | Value |
-|-------|--------|
-| `--olt-cta-gradient` | linear-gradient(to right, var(--olt-brand-blue), var(--olt-brand-green)) |
-| `--olt-cta-shadow` | 0 2px 8px rgba(36, 168, 224, 0.2) |
-| `--olt-cta-shadow-hover` | 0 4px 16px rgba(36, 168, 224, 0.35) |
+- **`--olt-cta-gradient`**: linear-gradient(to right, var(--olt-brand-blue), var(--olt-brand-green))
+- **`--olt-cta-shadow`**: 0 2px 8px rgba(36, 168, 224, 0.2)
+- **`--olt-cta-shadow-hover`**: 0 4px 16px rgba(36, 168, 224, 0.35)
 
 ---
 
@@ -199,10 +175,8 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 ## Responsive Breakpoints
 
-| Breakpoint | Behavior |
-|------------|----------|
-| **860px** | Root padding reduced to `--olt-space-4`. |
-| **480px** | Header stacks; title row full width; mobile badge visible, desktop badge hidden; status bar stacks; chart height 200px; header CTA hidden, mobile CTA visible; compact toggle padding. |
+- **860px**: Root padding reduced to `--olt-space-4`.
+- **480px**: Header stacks; title row full width; mobile badge visible, desktop badge hidden; status bar stacks; chart height 200px; header CTA hidden, mobile CTA visible; compact toggle padding.
 
 ---
 
@@ -267,7 +241,9 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 - **Currency**: Use `$` + whole number or two decimals (e.g. `$125` or `$125.50`). Widget uses rounded whole dollars in stats/chart.
 - **24h change**: Show as percentage with sign (e.g. `+5.2%`, `-3.1%`). Green for down (good for buyers), red for up.
+- **24h change N/A**: If there is no valid 24h comparison, the backend should return `null` for `change_24h`. The UI should render this as **N/A** (or hide the badge), never `0%`.
 - **Labels**: Uppercase for stat labels (MIN, AVG, MAX) and toggle text (3 DAY, All).
+- **Missing buckets (null values)**: For some timestamps there may be no eligible listings, so a metric can be `null`. Treat `null` as **missing data (a gap)**. Never coerce `null` to `0`—that can create impossible visuals (e.g. showing `MAX=$0` while `MIN=$507` for the same bucket).
 
 ---
 

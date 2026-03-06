@@ -9,10 +9,58 @@ Your polling logic is **correct**. The issue you're seeing (same aggregate data 
 ### 1. **Enhanced Diagnostic Logging**
 
 The poller now logs:
+
 - **Hour bucket** being processed (UTC format: `YYYY-MM-DDTHH:00:00.000Z`)
 - **Data hash** for each event (to detect if API returned different listings)
 - **Comparison with previous hour** (shows if prices changed)
 - **Warnings** when data is identical to previous hour
+
+### 1.1 **Skip Logic Diagnostics (why an event was skipped)**
+
+Sometimes an event is “skipped” for an hour because there are **no eligible listings** after filtering. This is expected in real data (inventory disappears, sellers pause, notes make listings non-buyable, etc.).
+
+When this happens, we do two important things:
+
+- **Continuity in charts**: we still write an `event_price_hourly` row for that hour with `listing_count = 0` and `min/avg/max = null` (so the time series has an explicit “gap”, not a missing row).
+- **Actionable diagnostics**: we log *where* listings were filtered out and store those counters in `poller_run_events` for later analysis.
+
+**Filter stages and counters (recorded on `poller_run_events`):**
+
+- **`raw_listing_count`**: total listings returned from the TE API
+- **`event_listing_count`**: listings remaining after filtering to `type = event` and valid prices
+- **`quantity_match_count`**: listings remaining after requiring `available_quantity >= 1` (general market availability)
+  - We intentionally **do not** require qty ≥ 2 or `splits.includes(2)`; the goal is overall market pricing, not the “2‑ticket purchase only” subset.
+- **`buyable_listing_count`**: listings remaining after excluding non-buyable notes (rejected/pending/etc.)
+- **`skip_reason`**: one of:
+  - `no_te_listings`
+  - `no_event_listings`
+  - `no_valid_quantity`
+  - `no_buyable_listings`
+
+**Example log line (when skipped):**
+
+```text
+[Event Title] Skip reason: no_buyable_listings | raw=15, event=12, qty=8, buyable=0
+```
+
+**How to query skipped events:**
+
+```sql
+select
+  hour_bucket,
+  te_event_id,
+  status,
+  error,
+  skip_reason,
+  raw_listing_count,
+  event_listing_count,
+  quantity_match_count,
+  buyable_listing_count
+from poller_run_events
+where status = 'skipped'
+order by hour_bucket desc
+limit 200;
+```
 
 ### 2. **Production API Support**
 
@@ -28,6 +76,7 @@ TE_API_BASE_URL=https://api.ticketevolution.com/v9
 ### 3. **Data Change Detection**
 
 The poller now:
+
 - Compares current hour's aggregates with the previous hour
 - Logs warnings when prices are identical (indicates stale sandbox data)
 - Shows data hash to verify if raw API responses differ
@@ -38,7 +87,7 @@ The poller now:
 
 After each poller run, check the Supabase Edge Function logs. You should see:
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
 HOURLY POLLER STARTING
 ═══════════════════════════════════════════════════════════════
@@ -92,6 +141,7 @@ Each hour should have a **unique** `hour_bucket` value.
 ## Why Sandbox Shows Same Data
 
 According to TE's documentation:
+
 - Sandbox is **updated nightly** (not hourly)
 - Inventory is **automatically generated** (not real)
 - Data is **sparse and random**
@@ -103,6 +153,7 @@ So seeing identical aggregates for multiple hours is **normal** for sandbox. The
 ### Step 1: Set Production API URL
 
 In Supabase dashboard:
+
 1. Go to **Edge Functions** → **hourly-poller**
 2. Go to **Settings** → **Secrets**
 3. Add: `TE_API_BASE_URL` = `https://api.ticketevolution.com/v9`
@@ -118,6 +169,7 @@ Consider temporarily limiting your `events` table to one test event to verify pr
 ### Step 4: Monitor First Few Runs
 
 Watch the logs for the first few production runs to ensure:
+
 - ✅ Different hour buckets are created
 - ✅ API responses vary (data hash changes)
 - ✅ Prices change over time (production has real, dynamic inventory)
@@ -125,17 +177,20 @@ Watch the logs for the first few production runs to ensure:
 ## What to Look For
 
 ### ✅ Good Signs (Logic Working)
+
 - Different `hour_bucket` values each hour
 - Logs show "Fetched X listings" with varying counts
 - Data hash changes between hours (in production)
 - No errors in `poller_runs.status`
 
 ### ⚠️ Warning Signs (Sandbox Behavior)
+
 - Same prices for multiple hours (expected in sandbox)
 - Data hash stays the same (sandbox doesn't change often)
 - Warnings about "same aggregate prices" (normal for sandbox)
 
 ### ❌ Actual Problems
+
 - Same `hour_bucket` being reused (would indicate bug)
 - All events failing (`events_failed` = `events_total`)
 - Database errors in logs
@@ -143,6 +198,7 @@ Watch the logs for the first few production runs to ensure:
 ## Your Logic is Sound
 
 The polling logic correctly:
+
 1. ✅ Creates unique hour buckets using UTC truncation
 2. ✅ Uses upsert with proper conflict resolution
 3. ✅ Fetches fresh data from API each run

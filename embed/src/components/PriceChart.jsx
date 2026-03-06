@@ -55,12 +55,14 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
   };
   const dataKey = metricToKey[metric] || metricToKey.avg;
 
-  // Animation state
+  // Animation state. We use a generation id so only the latest animation's frames may update
+  // state; rapid metric switches cancel the previous animation and prevent stale transitions.
   const [animatedData, setAnimatedData] = useState([]);
   const animationRef = useRef(null);
+  const animationGenerationRef = useRef(0);
   const startValuesRef = useRef(null);
   const endValuesRef = useRef(null);
-  const baseDataRef = useRef(null); // Pre-allocated structure
+  const baseDataRef = useRef(null);
 
   // Compute FIXED Y-axis domain across ALL metrics (prevents axis jitter)
   const yDomain = useMemo(() => {
@@ -97,22 +99,31 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
       return;
     }
 
-    // Create base structure once
-    const base = data.map((point) => ({
-      timestamp: point.timestamp,
-      min_price: point.min_price,
-      avg_price: point.avg_price,
-      max_price: point.max_price,
-      display_price: point[dataKey],
-    }));
+    // Create base structure once.
+    // Important: when the selected metric is null/missing for a bucket, keep display_price null
+    // (a gap) rather than coercing to 0. Coercing null→0 creates impossible charts like
+    // "max=0 while min>0" for the same timestamp.
+    const base = data.map((point) => {
+      const raw = point[dataKey];
+      const safe =
+        typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+      return {
+        timestamp: point.timestamp,
+        min_price: point.min_price,
+        avg_price: point.avg_price,
+        max_price: point.max_price,
+        display_price: safe,
+      };
+    });
 
     baseDataRef.current = base;
     setAnimatedData(base);
   }, [data]);
 
-  // Animate when metric changes
+  // Animate when metric changes. Stale transitions are prevented by: (1) cancelling any
+  // in-progress animation in cleanup and at effect start; (2) using a generation id so only
+  // the latest animation's requestAnimationFrame callbacks are allowed to call setAnimatedData.
   useEffect(() => {
-    // Cancel ongoing animation
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
@@ -121,40 +132,57 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
     if (!baseDataRef.current || baseDataRef.current.length === 0) return;
     if (animatedData.length === 0) return;
 
-    // Capture start and end values in typed arrays for performance
+    const generation = ++animationGenerationRef.current;
     const len = animatedData.length;
     const startValues = new Float64Array(len);
     const endValues = new Float64Array(len);
 
     for (let i = 0; i < len; i++) {
-      startValues[i] = animatedData[i].display_price;
-      endValues[i] = data[i][dataKey];
+      const pt = data[i];
+      const endVal = pt[dataKey];
+      const endNum =
+        typeof endVal === "number" && Number.isFinite(endVal) ? endVal : NaN;
+      const startVal = animatedData[i].display_price;
+      const startNum =
+        typeof startVal === "number" && Number.isFinite(startVal) ? startVal : NaN;
+
+      // If the new metric has missing/null buckets, endNum will be NaN and we'll render a gap.
+      // We keep start as-is if valid; otherwise start at end (if valid) to avoid NaN propagation.
+      startValues[i] = Number.isFinite(startNum)
+        ? startNum
+        : (Number.isFinite(endNum) ? endNum : NaN);
+      endValues[i] = endNum;
     }
 
     startValuesRef.current = startValues;
     endValuesRef.current = endValues;
 
-    const duration = 400; // ms
+    const duration = 400;
     const startTime = performance.now();
 
     const animate = (now) => {
+      if (generation !== animationGenerationRef.current) return;
+
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = easeOutCubic(progress);
 
-      // Create new array with interpolated values (minimal allocation)
       const start = startValuesRef.current;
       const end = endValuesRef.current;
       const base = baseDataRef.current;
-
       const result = new Array(len);
+
       for (let i = 0; i < len; i++) {
+        const s = start[i];
+        const e = end[i];
+        const interp =
+          Number.isFinite(s) && Number.isFinite(e) ? s + (e - s) * eased : e;
         result[i] = {
           timestamp: base[i].timestamp,
           min_price: base[i].min_price,
           avg_price: base[i].avg_price,
           max_price: base[i].max_price,
-          display_price: start[i] + (end[i] - start[i]) * eased,
+          display_price: Number.isFinite(interp) ? interp : null,
         };
       }
 
@@ -165,15 +193,15 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
       }
     };
 
-    // Start animation on next frame
     animationRef.current = requestAnimationFrame(animate);
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
       }
     };
-  }, [dataKey]); // Only re-run when metric changes
+  }, [dataKey]);
 
   // Chart colors (match --olt-brand-navy, --olt-brand-blue from tokens.css)
   const CHART_LINE_COLOR = "#2C356D";
@@ -211,14 +239,24 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
     return `$${Math.round(value)}`;
   };
 
-  // Custom tooltip styled per OLT
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const point = payload[0].payload;
-      const date = new Date(point.timestamp);
+  // Tooltip: Recharts can provide an empty payload when the hovered bucket has null/missing
+  // values for the selected metric. In that case we still show a small \"N/A\" tooltip so the
+  // UI doesn't look broken.
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active) return null;
 
-      return (
-        <div className="olt-chart-tooltip">
+    const point = payload?.[0]?.payload;
+    const timestamp = point?.timestamp ?? label;
+    const date = timestamp ? new Date(timestamp) : null;
+
+    const value =
+      typeof point?.display_price === "number" && Number.isFinite(point.display_price)
+        ? `$${Math.round(point.display_price)}`
+        : "N/A";
+
+    return (
+      <div className="olt-chart-tooltip">
+        {date && (
           <div className="olt-chart-tooltip-date">
             {date.toLocaleString("en-US", {
               month: "short",
@@ -227,18 +265,13 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
               minute: "2-digit",
             })}
           </div>
-          <div className="olt-chart-tooltip-row">
-            <span className="olt-chart-tooltip-label">
-              {metric.toUpperCase()}:
-            </span>
-            <span className="olt-chart-tooltip-value">
-              ${Math.round(point.display_price)}
-            </span>
-          </div>
+        )}
+        <div className="olt-chart-tooltip-row">
+          <span className="olt-chart-tooltip-label">{metric.toUpperCase()}:</span>
+          <span className="olt-chart-tooltip-value">{value}</span>
         </div>
-      );
-    }
-    return null;
+      </div>
+    );
   };
 
   if (!data || data.length === 0 || animatedData.length === 0) {
@@ -305,6 +338,7 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
           />
           <Tooltip
             content={<CustomTooltip />}
+            allowEscapeViewBox={{ x: true, y: true }}
             animationDuration={150}
             animationEasing="ease-out"
           />
@@ -322,7 +356,7 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
               stroke: CHART_LINE_COLOR,
               strokeWidth: 2,
             }}
-            connectNulls={true}
+            connectNulls={false}
             isAnimationActive={true}
             animationDuration={400}
             animationEasing="ease-out"

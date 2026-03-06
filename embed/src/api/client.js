@@ -48,7 +48,8 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
  * @property {number} avg_price
  * @property {number} max_price
  * @property {number} listing_count
- * @property {number} change_24h - Percentage change over 24 hours
+ * @property {number|null} change_24h - Percentage change over 24 hours; null when no valid
+ *   24h comparison (e.g. not enough history, or 24h-ago bucket missing). Do not treat as 0%.
  * @property {string} last_updated - ISO timestamp
  */
 
