@@ -1,7 +1,7 @@
 import React from "react";
 
 /**
- * 24h price change badge. Green for up, red for down.
+ * 24h price change badge. Green for down (good for buyers), red for up.
  * When showNa is true (backend returned null for change_24h), show subtle "24h N/A".
  * Rendered twice in layout (mobile + desktop) with CSS controlling visibility.
  */
