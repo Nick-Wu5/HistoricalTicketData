@@ -64,32 +64,45 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
   const endValuesRef = useRef(null);
   const baseDataRef = useRef(null);
 
-  // Compute FIXED Y-axis domain across ALL metrics (prevents axis jitter)
+  // Compute Y-axis domain based on the currently selected metric only.
+  // This avoids a single extreme max_price from compressing the AVG/MIN views.
   const yDomain = useMemo(() => {
     if (!data || data.length === 0) return [0, 100];
+
+    const key = metricToKey[metric] || metricToKey.avg;
 
     let min = Infinity;
     let max = -Infinity;
 
     for (const point of data) {
-      // Check all three metrics to get global min/max
-      const values = [point.min_price, point.avg_price, point.max_price];
-      for (const v of values) {
-        if (v != null) {
-          if (v < min) min = v;
-          if (v > max) max = v;
-        }
+      const raw = point[key];
+      const v =
+        typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+      if (v != null) {
+        if (v < min) min = v;
+        if (v > max) max = v;
       }
     }
 
-    // Round to nice values for clean tick marks
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      return [0, 100];
+    }
+
+    // Handle flat or near-flat series by adding a bit of padding
+    if (min === max) {
+      const pad = min === 0 ? 10 : Math.max(Math.abs(min) * 0.1, 1);
+      return [min - pad, max + pad];
+    }
+
     const range = max - min;
-    const step = Math.pow(10, Math.floor(Math.log10(range))) / 2; // Nice step size
+    // Guard against pathological tiny ranges
+    const safeRange = range <= 0 ? Math.max(Math.abs(max), 1) : range;
+    const step = Math.pow(10, Math.floor(Math.log10(safeRange))) / 2; // Nice step size
     const niceMin = Math.floor(min / step) * step;
     const niceMax = Math.ceil(max / step) * step;
 
     return [niceMin, niceMax];
-  }, [data]);
+  }, [data, metric]);
 
   // Initialize base data structure (only when data changes)
   useEffect(() => {
