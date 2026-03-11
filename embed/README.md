@@ -64,8 +64,6 @@ Include the script and a mount element. The **event ID** determines which event�
 <div id="ticket-widget" data-event-id="123456"></div>
 ```
 
-Supported attributes: `te-event-id` or `data-event-id` (numeric Ticket Evolution event ID), optional `data-theme` (light/dark), optional `data-mode` (real/mock).
-
 ---
 
 # Project Structure
@@ -151,13 +149,3 @@ The embed script is served from:
 **https://pricing.onlylocaltickets.com/**
 
 Host the built `ticket-embed.js` (and optional test page) from this origin so partner sites can load it with the usage snippet above.
-
----
-
-# Design Principles
-
-- **Lightweight** — Single script, minimal dependencies.
-- **Data-focused** — Clear stats and chart; no clutter.
-- **Mobile-friendly** — Responsive layout and touch-friendly controls.
-- **Easy to embed** — One script tag and one element with an event ID.
-- **Easy to maintain** — React + Vite, clear separation between bootstrap, API, and UI.
