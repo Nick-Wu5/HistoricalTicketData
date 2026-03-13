@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -15,17 +15,17 @@ import {
  *
  * Props:
  * - data: Array of { timestamp (ISO string), min_price, avg_price, max_price }
- * - metric: 'min' | 'avg' | 'max' - which line to display
+ * - metric: 'min' | 'avg' | 'max' - which line to display (default: 'min' - starting price)
  * - timeRange: '3day' | 'alltime' - affects X-axis label format
  */
 
-// Easing function outside component (no recreation)
-const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+// Keep line/timeline animations controlled via a single duration constant so they feel aligned.
+const METRIC_ANIMATION_DURATION_MS = 700;
 
 // Lightweight mobile detection via matchMedia
 const MOBILE_BREAKPOINT = "(max-width: 640px)";
 
-function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
+function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
   // Track mobile viewport for responsive tick density
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -53,23 +53,14 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
     avg: "avg_price",
     max: "max_price",
   };
-  const dataKey = metricToKey[metric] || metricToKey.avg;
-
-  // Animation state. We use a generation id so only the latest animation's frames may update
-  // state; rapid metric switches cancel the previous animation and prevent stale transitions.
-  const [animatedData, setAnimatedData] = useState([]);
-  const animationRef = useRef(null);
-  const animationGenerationRef = useRef(0);
-  const startValuesRef = useRef(null);
-  const endValuesRef = useRef(null);
-  const baseDataRef = useRef(null);
+  const dataKey = metricToKey[metric] || metricToKey.min;
 
   // Compute Y-axis domain based on the currently selected metric only.
-  // This avoids a single extreme max_price from compressing the AVG/MIN views.
-  const yDomain = useMemo(() => {
+  // This avoids a single extreme (e.g. max_price) from compressing the MIN/AVG views.
+  const targetYDomain = useMemo(() => {
     if (!data || data.length === 0) return [0, 100];
 
-    const key = metricToKey[metric] || metricToKey.avg;
+    const key = metricToKey[metric] || metricToKey.min;
 
     let min = Infinity;
     let max = -Infinity;
@@ -104,117 +95,20 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
     return [niceMin, niceMax];
   }, [data, metric]);
 
-  // Initialize base data structure (only when data changes)
-  useEffect(() => {
-    if (!data || data.length === 0) {
-      setAnimatedData([]);
-      baseDataRef.current = null;
-      return;
-    }
-
-    // Create base structure once.
-    // Important: when the selected metric is null/missing for a bucket, keep display_price null
-    // (a gap) rather than coercing to 0. Coercing null→0 creates impossible charts like
-    // "max=0 while min>0" for the same timestamp.
-    const base = data.map((point) => {
+  // Derived chart data with a metric-specific display_price field.
+  // We let Recharts handle the animation between datasets so metric + timeline toggles feel the same.
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return data.map((point) => {
       const raw = point[dataKey];
       const safe =
         typeof raw === "number" && Number.isFinite(raw) ? raw : null;
       return {
-        timestamp: point.timestamp,
-        min_price: point.min_price,
-        avg_price: point.avg_price,
-        max_price: point.max_price,
+        ...point,
         display_price: safe,
       };
     });
-
-    baseDataRef.current = base;
-    setAnimatedData(base);
-  }, [data]);
-
-  // Animate when metric changes. Stale transitions are prevented by: (1) cancelling any
-  // in-progress animation in cleanup and at effect start; (2) using a generation id so only
-  // the latest animation's requestAnimationFrame callbacks are allowed to call setAnimatedData.
-  useEffect(() => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-
-    if (!baseDataRef.current || baseDataRef.current.length === 0) return;
-    if (animatedData.length === 0) return;
-
-    const generation = ++animationGenerationRef.current;
-    const len = animatedData.length;
-    const startValues = new Float64Array(len);
-    const endValues = new Float64Array(len);
-
-    for (let i = 0; i < len; i++) {
-      const pt = data[i];
-      const endVal = pt[dataKey];
-      const endNum =
-        typeof endVal === "number" && Number.isFinite(endVal) ? endVal : NaN;
-      const startVal = animatedData[i].display_price;
-      const startNum =
-        typeof startVal === "number" && Number.isFinite(startVal) ? startVal : NaN;
-
-      // If the new metric has missing/null buckets, endNum will be NaN and we'll render a gap.
-      // We keep start as-is if valid; otherwise start at end (if valid) to avoid NaN propagation.
-      startValues[i] = Number.isFinite(startNum)
-        ? startNum
-        : (Number.isFinite(endNum) ? endNum : NaN);
-      endValues[i] = endNum;
-    }
-
-    startValuesRef.current = startValues;
-    endValuesRef.current = endValues;
-
-    const duration = 400;
-    const startTime = performance.now();
-
-    const animate = (now) => {
-      if (generation !== animationGenerationRef.current) return;
-
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeOutCubic(progress);
-
-      const start = startValuesRef.current;
-      const end = endValuesRef.current;
-      const base = baseDataRef.current;
-      const result = new Array(len);
-
-      for (let i = 0; i < len; i++) {
-        const s = start[i];
-        const e = end[i];
-        const interp =
-          Number.isFinite(s) && Number.isFinite(e) ? s + (e - s) * eased : e;
-        result[i] = {
-          timestamp: base[i].timestamp,
-          min_price: base[i].min_price,
-          avg_price: base[i].avg_price,
-          max_price: base[i].max_price,
-          display_price: Number.isFinite(interp) ? interp : null,
-        };
-      }
-
-      setAnimatedData(result);
-
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate);
-      }
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-    };
-  }, [dataKey]);
+  }, [data, dataKey]);
 
   // Chart colors (match --olt-brand-navy, --olt-brand-blue from tokens.css)
   const CHART_LINE_COLOR = "#2C356D";
@@ -287,7 +181,7 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
     );
   };
 
-  if (!data || data.length === 0 || animatedData.length === 0) {
+  if (!data || data.length === 0 || chartData.length === 0) {
     return (
       <div
         className="olt-chart-wrapper"
@@ -308,7 +202,7 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
           Using 100% height lets CSS control the actual size */}
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          data={animatedData}
+          data={chartData}
           margin={{ top: 5, right: 10, left: 5, bottom: 5 }}
         >
           <defs>
@@ -338,7 +232,7 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
             padding={{ left: 10, right: 10 }}
           />
           <YAxis
-            domain={yDomain}
+            domain={targetYDomain}
             tickCount={5}
             allowDecimals={false}
             tickFormatter={formatYAxis}
@@ -371,7 +265,7 @@ function PriceChart({ data = [], metric = "avg", timeRange = "3day" }) {
             }}
             connectNulls={false}
             isAnimationActive={true}
-            animationDuration={400}
+            animationDuration={METRIC_ANIMATION_DURATION_MS}
             animationEasing="ease-out"
           />
         </AreaChart>

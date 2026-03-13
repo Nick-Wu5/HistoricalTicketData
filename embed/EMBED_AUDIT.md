@@ -31,7 +31,7 @@
 | Item | Location | Issue |
 |------|----------|-------|
 | **README.md** | `embed/README.md` | References `PriceDisplay.jsx` (renamed to `PriceStats.jsx`), `embed.css` (deleted; now `tokens.css` + `components.css`). |
-| **docs/style.md** | `docs/style.md` | Old token names (`--olt-navy-900`, `--olt-blue-500`), old class names (`.olt-kpis`, `.olt-tab`). Current uses `.olt-stats`, `.olt-toggle-group`, `--olt-brand-*`. |
+| **docs/style.md** | `docs/style.md` | Old token names (`--olt-navy-900`, `--olt-blue-500`), old class names (`.olt-kpis`, `.olt-tab`). Current uses `.olt-toggle-group--stat` (stat selector), `.olt-toggle-group`, `--olt-brand-*`. |
 | **docs/STYLE_ALIGNMENT_CHECKLIST.md** | `docs/` | Entirely outdated. References non-existent classes and old token names. |
 | **index.production.html** | `embed/` | Wrong event ID format; uses `data-event-id` instead of `te-event-id`. |
 | **tests/embed-test-page.html** | `tests/` | Import path `./src/main.jsx` assumes project root; embed lives in `embed/`. Event IDs like `te_single_test` are non-numeric. |

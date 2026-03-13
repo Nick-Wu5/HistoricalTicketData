@@ -170,20 +170,18 @@
 
 .olt-status-bar {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: var(--olt-space-1) 0;
+}
+
+.olt-status-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--olt-space-3);
-  padding: var(--olt-space-2) 0;
   flex-wrap: wrap;
-}
-
-/* Left side of the status bar: stats + clarification label */
-.olt-status-left {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
 }
 
 .olt-stats-note {
@@ -191,56 +189,6 @@
   color: var(--olt-muted);
   line-height: 1.1;
   opacity: 0.65;
-}
-
-/* Stats row: MIN / AVG / MAX inline display */
-.olt-stats {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.olt-stat-item {
-  flex: 1;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding-bottom: 8px;
-  padding-right: var(--olt-space-4);
-  opacity: 0.38;
-  transition: var(--olt-transition-base);
-}
-
-.olt-stat-item:last-of-type {
-  padding-right: 0;
-}
-
-.olt-stat-item--active {
-  opacity: 1;
-}
-
-.olt-stat-item--active .olt-stat-price {
-  color: var(--olt-brand-navy);
-}
-
-.olt-stat-item--active .olt-stat-label {
-  color: var(--olt-brand-navy);
-  opacity: 0.7;
-}
-
-.olt-stat-price {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--olt-brand-navy);
-}
-
-.olt-stat-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--olt-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -270,10 +218,70 @@
   max-width: 100%;
 }
 
-/* Metric group = 3 equal columns */
+/* Metric group = 3 equal columns (legacy; stat selector now uses --stat) */
 .olt-toggle-group--metric {
   grid-template-columns: repeat(3, 1fr);
   min-width: 130px;
+}
+
+/* Stat selector: same pill/toggle style, sized for price + label (MIN/AVG/MAX) */
+.olt-toggle-group--stat {
+  grid-template-columns: repeat(3, 1fr);
+  min-width: 160px;
+}
+
+.olt-toggle-group--stat .olt-toggle-pill {
+  width: calc((100% - 4px) / 3);
+}
+
+.olt-toggle-group--stat[data-active-index="0"] .olt-toggle-pill {
+  transform: translateX(0%);
+}
+.olt-toggle-group--stat[data-active-index="1"] .olt-toggle-pill {
+  transform: translateX(100%);
+}
+.olt-toggle-group--stat[data-active-index="2"] .olt-toggle-pill {
+  transform: translateX(200%);
+}
+
+.olt-toggle--stat {
+  display: inline-flex;
+  flex-direction: row; /* value then label on a single line */
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  width: 100%; /* each stat occupies its full grid column */
+  white-space: nowrap; /* prevent wrapping between price and label */
+  padding: 6px 10px; /* match .olt-toggle vertical rhythm */
+}
+
+.olt-toggle-stat-price {
+  font-size: 12px; /* keep height aligned with range selector */
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
+}
+
+.olt-toggle-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.85;
+  line-height: 1;
+}
+
+.olt-toggle--stat[aria-pressed="true"] .olt-toggle-stat-price,
+.olt-toggle--stat[aria-pressed="true"] .olt-toggle-stat-label {
+  color: var(--olt-brand-navy);
+}
+
+.olt-toggle--stat[aria-pressed="false"] {
+  color: var(--olt-muted);
+}
+
+.olt-toggle--stat[aria-pressed="false"]:hover {
+  color: var(--olt-text-2);
 }
 
 /* Range group = 2 equal columns */
@@ -367,7 +375,7 @@
 
 .olt-chart {
   margin: 0;
-  padding: var(--olt-space-2) 0;
+  padding: var(--olt-space-1) 0;
   background: transparent;
   min-height: 280px;
 }
@@ -610,19 +618,23 @@ a.olt-btn-primary:hover {
     display: none;
   }
 
-  .olt-status-bar {
+  .olt-status-row {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--olt-space-2);
   }
 
-  .olt-stats {
+  .olt-toggle-group--stat {
     width: 100%;
-    justify-content: space-between;
+    min-width: 0;
   }
 
-  .olt-stat-price {
-    font-size: 14px;
+  .olt-toggle-stat-price {
+    font-size: 13px;
+  }
+
+  .olt-toggle-stat-label {
+    font-size: 9px;
   }
 
   .olt-controls {
@@ -632,6 +644,10 @@ a.olt-btn-primary:hover {
   .olt-toggle {
     padding: 5px 10px;
     font-size: 11px;
+  }
+
+  .olt-toggle--stat {
+    padding: 5px 6px;
   }
 
   .olt-chart {

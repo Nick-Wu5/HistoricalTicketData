@@ -11,7 +11,9 @@ function App({ config }) {
   const [error, setError] = useState(null);
   const [eventEnded, setEventEnded] = useState(false);
 
-  const [metric, setMetric] = useState("avg");
+  // Default to MIN: minimum price is the usual "starting at" quote for tickets.
+  // Single source of truth here; no lazy init or effect—avoids any transient AVG render.
+  const [metric, setMetric] = useState("min");
   const [timeRange, setTimeRange] = useState("3day");
 
   // Fetch data
@@ -164,60 +166,41 @@ function App({ config }) {
         </div>
       </header>
 
-      {/* Stats + controls */}
+      {/* Controls section: selectors row + subtle caption. */}
       <div className="olt-status-bar">
-        <div className="olt-status-left">
-          <div className="olt-stats-note">Live market stats</div>
+        <div className="olt-status-row">
           <PriceStats
             min={currentData?.min_price}
             avg={currentData?.avg_price}
             max={currentData?.max_price}
             activeMetric={metric}
+            onMetricChange={setMetric}
           />
-        </div>
 
-        <div className="olt-controls">
-          {/* Price Type Toggle */}
-          <div
-            className="olt-toggle-group olt-toggle-group--metric"
-            data-active-index={metric === "min" ? 0 : metric === "avg" ? 1 : 2}
-          >
-            <span className="olt-toggle-pill" aria-hidden="true" />
-            {["min", "avg", "max"].map((m) => (
+          <div className="olt-controls">
+            {/* Date Range Toggle */}
+            <div
+              className="olt-toggle-group olt-toggle-group--range"
+              data-active-index={timeRange === "3day" ? 0 : 1}
+            >
+              <span className="olt-toggle-pill" aria-hidden="true" />
               <button
-                key={m}
                 className="olt-toggle"
-                onClick={() => setMetric(m)}
-                aria-pressed={metric === m}
+                onClick={() => setTimeRange("3day")}
+                aria-pressed={timeRange === "3day"}
                 type="button"
               >
-                {m.toUpperCase()}
+                3 DAY
               </button>
-            ))}
-          </div>
-
-          {/* Date Range Toggle */}
-          <div
-            className="olt-toggle-group olt-toggle-group--range"
-            data-active-index={timeRange === "3day" ? 0 : 1}
-          >
-            <span className="olt-toggle-pill" aria-hidden="true" />
-            <button
-              className="olt-toggle"
-              onClick={() => setTimeRange("3day")}
-              aria-pressed={timeRange === "3day"}
-              type="button"
-            >
-              3 DAY
-            </button>
-            <button
-              className="olt-toggle"
-              onClick={() => setTimeRange("alltime")}
-              aria-pressed={timeRange === "alltime"}
-              type="button"
-            >
-              All
-            </button>
+              <button
+                className="olt-toggle"
+                onClick={() => setTimeRange("alltime")}
+                aria-pressed={timeRange === "alltime"}
+                type="button"
+              >
+                All
+              </button>
+            </div>
           </div>
         </div>
       </div>
