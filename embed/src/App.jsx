@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import PriceChart from "./components/PriceChart";
 import PriceStats from "./components/PriceStats";
 import ChangeBadge from "./components/ChangeBadge";
@@ -15,6 +15,7 @@ function App({ config }) {
   // Single source of truth here; no lazy init or effect—avoids any transient AVG render.
   const [metric, setMetric] = useState("min");
   const [timeRange, setTimeRange] = useState("3day");
+  const fetchTimeRange = timeRange === "24h" ? "3day" : timeRange;
 
   // Fetch data
   useEffect(() => {
@@ -31,7 +32,7 @@ function App({ config }) {
         // fetchWidgetData returns { event, prices, chartData, eventEnded }
         const widgetData = await fetchWidgetData({
           eventId: config.eventId,
-          timeRange,
+          timeRange: fetchTimeRange,
           mode: config.mode || "real",
         });
 
@@ -68,7 +69,16 @@ function App({ config }) {
       cancelled = true;
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [config.eventId, timeRange, eventEnded]);
+  }, [config.eventId, fetchTimeRange, eventEnded]);
+
+  const displayedChartData = useMemo(() => {
+    if (timeRange !== "24h") return chartData;
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return (chartData || []).filter((p) => {
+      const t = new Date(p.timestamp).getTime();
+      return Number.isFinite(t) && t >= cutoff;
+    });
+  }, [chartData, timeRange]);
 
   // 24h change: backend should return null when there is no valid comparison (e.g. not enough
   // history, or 24h-ago bucket missing). We never show 0% when the backend sends null.
@@ -181,9 +191,17 @@ function App({ config }) {
             {/* Date Range Toggle */}
             <div
               className="olt-toggle-group olt-toggle-group--range"
-              data-active-index={timeRange === "3day" ? 0 : 1}
+              data-active-index={timeRange === "24h" ? 0 : timeRange === "3day" ? 1 : 2}
             >
               <span className="olt-toggle-pill" aria-hidden="true" />
+              <button
+                className="olt-toggle"
+                onClick={() => setTimeRange("24h")}
+                aria-pressed={timeRange === "24h"}
+                type="button"
+              >
+                24 HR
+              </button>
               <button
                 className="olt-toggle"
                 onClick={() => setTimeRange("3day")}
@@ -207,7 +225,7 @@ function App({ config }) {
 
       {/* Chart */}
       <div className="olt-chart">
-        <PriceChart data={chartData} metric={metric} timeRange={timeRange} />
+        <PriceChart data={displayedChartData} metric={metric} timeRange={timeRange} />
       </div>
 
       {/* Mobile CTA (hidden on desktop) */}

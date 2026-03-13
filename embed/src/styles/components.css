@@ -284,10 +284,10 @@
   color: var(--olt-text-2);
 }
 
-/* Range group = 2 equal columns */
+/* Range group = 3 equal columns (24 HR / 3 DAY / ALL) */
 .olt-toggle-group--range {
-  grid-template-columns: repeat(2, 1fr);
-  min-width: 90px;
+  grid-template-columns: repeat(3, 1fr);
+  min-width: 130px;
 }
 
 /* Sliding pill indicator */
@@ -310,7 +310,7 @@
 }
 
 .olt-toggle-group--range .olt-toggle-pill {
-  width: calc((100% - 4px) / 2);
+  width: calc((100% - 4px) / 3);
 }
 
 /* Translate based on active index */

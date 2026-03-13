@@ -119,14 +119,33 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
   // Desktop: ~7 ticks, Mobile: ~4 ticks
   const xTickInterval = useMemo(() => {
     if (!data || data.length === 0) return 0;
-    const targetTicks = isMobile ? 4 : 7;
+
+    // Time-range-aware tick density:
+    // - 24h: intraday market feel (more ticks on desktop, fewer on mobile)
+    // - 3day: existing behavior
+    // - alltime: fewer ticks by default
+    let targetTicks;
+    if (timeRange === "24h") {
+      targetTicks = isMobile ? 4 : 8;
+    } else if (timeRange === "3day") {
+      targetTicks = isMobile ? 4 : 7;
+    } else {
+      targetTicks = isMobile ? 3 : 6;
+    }
+
     return Math.max(1, Math.floor(data.length / targetTicks));
-  }, [data, isMobile]);
+  }, [data, isMobile, timeRange]);
 
   // Format timestamp for X-axis
   const formatXAxis = (timestamp) => {
     const date = new Date(timestamp);
-    if (timeRange === "3day") {
+    if (timeRange === "24h") {
+      // Intraday view: hour-of-day labels like "12 AM", "3 AM", "6 AM".
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        hour12: true,
+      });
+    } else if (timeRange === "3day") {
       // Show hour format for 3-day view
       return date.toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -203,7 +222,8 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}
-          margin={{ top: 5, right: 10, left: 5, bottom: 5 }}
+          // Extra bottom spacing prevents bottom-left X tick from colliding with the lowest Y tick.
+          margin={{ top: 5, right: 10, left: 5, bottom: 12 }}
         >
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -230,6 +250,7 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
             tickLine={false}
             axisLine={{ stroke: "#e5e7eb" }}
             padding={{ left: 10, right: 10 }}
+            tickMargin={4}
           />
           <YAxis
             domain={targetYDomain}
@@ -242,6 +263,7 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
             tickLine={false}
             axisLine={false}
             width={55}
+            tickMargin={4}
           />
           <Tooltip
             content={<CustomTooltip />}
