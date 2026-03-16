@@ -1,9 +1,9 @@
 import React from "react";
 
 /**
- * 24h price change badge. Green for down (good for buyers), red for up.
- * When showNa is true (backend returned null for change_24h), show subtle "24h N/A".
- * Rendered twice in layout (mobile + desktop) with CSS controlling visibility.
+ * 24h price change badge. Reflects the currently selected metric (MIN/AVG/MAX).
+ * Green for down (good for buyers), red for up. When showNa is true (no valid 24h comparison
+ * for the selected metric), show "24h N/A". Rendered twice (mobile + desktop) with CSS visibility.
  */
 function ChangeBadge({
   value,
@@ -33,14 +33,12 @@ function ChangeBadge({
     : isPositive
       ? "olt-change--up"
       : "olt-change--down";
-  const arrow = isZero ? "→" : isPositive ? "↑" : "↓";
 
   return (
     <span
       className={`olt-change ${visibilityClass} ${directionClass}`}
       aria-label={`24 hour change: ${value}`}
     >
-      <span className="olt-change-arrow">{arrow}</span>
       {value}
       <span className="olt-change-label">24h</span>
     </span>

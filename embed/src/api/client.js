@@ -8,8 +8,9 @@
  *
  * The embed widget uses this client to fetch:
  * - Event metadata (title, olt_url, ends_at, ended_at)
- * - Current prices (min, avg, max, 24h change)
+ * - Current prices (min, avg, max, listing_count, last_updated, and per-metric 24h change)
  * - Chart data (hourly for 3-day view, daily for all-time view)
+ * The 24h change badge uses change_24h_min / change_24h_avg / change_24h_max from the backend for the selected metric.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -44,13 +45,14 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 /**
  * @typedef {Object} CurrentPrices
- * @property {number} min_price
- * @property {number} avg_price
- * @property {number} max_price
- * @property {number} listing_count
- * @property {number|null} change_24h - Percentage change over 24 hours; null when no valid
- *   24h comparison (e.g. not enough history, or 24h-ago bucket missing). Do not treat as 0%.
- * @property {string} last_updated - ISO timestamp
+ * @property {number|null} min_price
+ * @property {number|null} avg_price
+ * @property {number|null} max_price
+ * @property {number|null} listing_count
+ * @property {number|null} change_24h_min - 24h percentage change for min price; null when no valid comparison
+ * @property {number|null} change_24h_avg - 24h percentage change for avg price; null when no valid comparison
+ * @property {number|null} change_24h_max - 24h percentage change for max price; null when no valid comparison
+ * @property {string|null} last_updated - ISO timestamp
  */
 
 /**
@@ -303,7 +305,9 @@ function generateMockPrices() {
     avg_price: 285,
     max_price: 450,
     listing_count: 1247,
-    change_24h: -5.2, // Negative = price dropped (good for buyers)
+    change_24h_min: -5.2,
+    change_24h_avg: -3.1,
+    change_24h_max: -2.0,
     last_updated: new Date().toISOString(),
   };
 }
@@ -380,7 +384,9 @@ export async function fetchWidgetData({
         avg_price: 0,
         max_price: 0,
         listing_count: 0,
-        change_24h: 0,
+        change_24h_min: null,
+        change_24h_avg: null,
+        change_24h_max: null,
         last_updated: new Date().toISOString(),
       },
       chartData,

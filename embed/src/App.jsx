@@ -80,8 +80,13 @@ function App({ config }) {
     });
   }, [chartData, timeRange]);
 
-  // 24h change: backend should return null when there is no valid comparison (e.g. not enough
-  // history, or 24h-ago bucket missing). We never show 0% when the backend sends null.
+  // Per-metric 24h change from backend (get_current_prices returns change_24h_min/avg/max).
+  const change24hByMetric = {
+    min: currentData?.change_24h_min ?? null,
+    avg: currentData?.change_24h_avg ?? null,
+    max: currentData?.change_24h_max ?? null,
+  };
+
   const formatChange = (value) => {
     if (value == null) return null;
     const sign = value >= 0 ? "+" : "";
@@ -115,10 +120,13 @@ function App({ config }) {
     currentData?.olt_url ||
     `https://onlylocaltickets.com/events/${config.eventId}`;
   const eventTitle = currentData?.title || "Event";
-  const changeValue = formatChange(currentData?.change_24h);
-  const isPositiveChange = (currentData?.change_24h ?? 0) < 0;
-  const isZeroChange = currentData?.change_24h === 0;
-  const show24hNa = currentData != null && currentData.change_24h == null;
+
+  // 24h badge reflects the selected metric (MIN/AVG/MAX).
+  const selectedChange24h = change24hByMetric[metric];
+  const changeValue = formatChange(selectedChange24h);
+  const isPositiveChange = (selectedChange24h ?? 0) < 0;
+  const isZeroChange = selectedChange24h === 0;
+  const show24hNa = selectedChange24h == null;
 
   const formatEventDate = (dateString) => {
     if (!dateString) return null;
