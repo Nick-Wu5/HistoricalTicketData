@@ -1,7 +1,7 @@
 # Embed Final Polish — Audit Summary
 
 **Date**: 2025-03-05  
-**Scope**: React + Vite embeddable widget (`embed/`)
+**Scope**: React + Vite embeddable widget (`app/embed/`)
 
 ---
 
@@ -30,11 +30,11 @@
 
 | Item | Location | Issue |
 |------|----------|-------|
-| **README.md** | `embed/README.md` | References `PriceDisplay.jsx` (renamed to `PriceStats.jsx`), `embed.css` (deleted; now `tokens.css` + `components.css`). |
+| **README.md** | `README.md` | References `PriceDisplay.jsx` (renamed to `PriceStats.jsx`), `embed.css` (deleted; now `tokens.css` + `components.css`). |
 | **docs/style.md** | `docs/style.md` | Old token names (`--olt-navy-900`, `--olt-blue-500`), old class names (`.olt-kpis`, `.olt-tab`). Current uses `.olt-toggle-group--stat` (stat selector), `.olt-toggle-group`, `--olt-brand-*`. |
 | **docs/STYLE_ALIGNMENT_CHECKLIST.md** | `docs/` | Entirely outdated. References non-existent classes and old token names. |
-| **index.production.html** | `embed/` | Wrong event ID format; uses `data-event-id` instead of `te-event-id`. |
-| **tests/embed-test-page.html** | `tests/` | Import path `./src/main.jsx` assumes project root; embed lives in `embed/`. Event IDs like `te_single_test` are non-numeric. |
+| **index.production.html** | `app/embed/` | Wrong event ID format; uses `data-event-id` instead of `te-event-id`. |
+| **tests/embed-test-page.html** | `tests/` | Import path `./src/main.jsx` assumes project root; embed lives in `app/embed/`. Event IDs like `te_single_test` are non-numeric. |
 
 ### 4. Comments & Structure
 
@@ -69,7 +69,7 @@
    - Ensure bootstrap JSDoc reflects both `te-event-id` and `data-event-id`.
 
 4. **Documentation cleanup**
-   - Update `embed/README.md` (structure, component names, styles).
+   - Update `README.md` (structure, component names, styles).
    - Update `index.production.html` (te-event-id, numeric event ID).
    - Update `docs/style.md` to match current tokens and classes (or add "current implementation" section).
    - Add note to `STYLE_ALIGNMENT_CHECKLIST.md` that it's historical; or archive.
