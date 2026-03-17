@@ -235,7 +235,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      get_24h_change: { Args: { p_te_event_id: number }; Returns: number };
+      get_24h_changes: {
+        Args: { p_te_event_id: number };
+        Returns: {
+          change_24h_min: number | null;
+          change_24h_avg: number | null;
+          change_24h_max: number | null;
+        }[];
+      };
       get_chart_data_daily: {
         Args: { p_te_event_id: number };
         Returns: {
@@ -257,12 +264,14 @@ export type Database = {
       get_current_prices: {
         Args: { p_te_event_id: number };
         Returns: {
-          avg_price: number;
-          change_24h: number;
-          last_updated: string;
-          listing_count: number;
-          max_price: number;
-          min_price: number;
+          avg_price: number | null;
+          change_24h_avg: number | null;
+          change_24h_max: number | null;
+          change_24h_min: number | null;
+          last_updated: string | null;
+          listing_count: number | null;
+          max_price: number | null;
+          min_price: number | null;
         }[];
       };
       rollup_hourly_to_daily: { Args: never; Returns: undefined };

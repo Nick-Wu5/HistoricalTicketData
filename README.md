@@ -72,7 +72,7 @@ Include the script and a mount element. The **event ID** determines which eventâ
 # Project Structure
 
 ```
-embed/
+app/embed/
   src/
     App.jsx           # Root layout, stats, chart, and data wiring
     main.jsx          # Entry; delegates to bootstrap

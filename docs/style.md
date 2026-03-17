@@ -2,10 +2,10 @@
 
 This document is the **source of truth** for the embeddable Historical Ticket Pricing widget. It reflects the live implementation in:
 
-- **`embed/src/styles/tokens.css`** — design tokens (CSS custom properties)
-- **`embed/src/styles/components.css`** — component styles
+- **`app/embed/src/styles/tokens.css`** — design tokens (CSS custom properties)
+- **`app/embed/src/styles/components.css`** — component styles
 
-When in doubt, the CSS files in `embed/src/styles/` are authoritative; this doc summarizes them for maintainers and design reference.
+When in doubt, the CSS files in `app/embed/src/styles/` are authoritative; this doc summarizes them for maintainers and design reference.
 
 ---
 
@@ -124,27 +124,31 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 - **`.olt-change--desktop`** — Shown only on desktop; hidden on mobile.
 - **`.olt-change-arrow`**, **`.olt-change-label`** — Inner pieces.
 
-### Status Bar (stats + controls)
+### Status Bar (stat selector + timeline)
 
-- **`.olt-status-bar`** — Flex row; contains stats and control groups.
-- **`.olt-stats`** — Inline row of MIN / AVG / MAX.
-- **`.olt-stat-item`** — Single stat; inactive state uses opacity 0.5.
-- **`.olt-stat-item--active`** — Full opacity; price and label use brand navy.
-- **`.olt-stat-price`**, **`.olt-stat-label`** — Value and label (e.g. "AVG").
+- **`.olt-status-bar`** — Flex row; left = stat selector, right = timeline toggle.
+- **`.olt-status-left`** — Contains "Live market stats" note and the stat-selector.
+- **`.olt-stats-note`** — Small muted label above the stat selector.
+- **Stat selector** — The stat bar doubles as the metric selector: same pill/toggle style as timeline, sized for price + label. Uses **`.olt-toggle-group--stat`** (3 columns), **`.olt-toggle-pill`**, and **`.olt-toggle--stat`** buttons. Each button shows **`.olt-toggle-stat-price`** and **`.olt-toggle-stat-label`** (MIN/AVG/MAX). Clicking a stat switches the chart metric; `data-active-index` and `aria-pressed` indicate the active metric.
 
 ### Toggle Controls
 
-- **`.olt-controls`** — Wrapper for toggle groups.
+- **`.olt-controls`** — Wrapper for toggle groups (timeline only; metric selector lives in status-left).
 - **`.olt-toggle-group`** — Pill container (border, radius-pill, surface-2). Uses `data-active-index="0"|"1"|"2"` for sliding pill position.
-- **`.olt-toggle-group--metric`** — 3 columns (MIN / AVG / MAX).
-- **`.olt-toggle-group--range`** — 2 columns (3 DAY / All).
+- **`.olt-toggle-group--stat`** — Stat selector: 3 columns, price + label per segment.
+- **`.olt-toggle-group--range`** — 3 columns (24 HR / 3 DAY / ALL).
 - **`.olt-toggle-pill`** — Sliding white pill (shadow, transition). Position driven by `data-active-index`.
 - **`.olt-toggle`** — Button: transparent bg, muted text; `aria-pressed="true"` → brand navy. Focus-visible: brand blue outline.
+- **`.olt-toggle--stat`** — Stat segment: flex column, **`.olt-toggle-stat-price`** (bold) + **`.olt-toggle-stat-label`** (uppercase).
 
 ### Chart
 
 - **`.olt-chart`** — Chart section (min-height 280px; 200px on mobile).
 - **`.olt-chart-wrapper`** — Wrapper for Recharts (height 280px / 200px).
+- **Timeline formatting**:
+  - **24 HR**: intraday time-of-day labels on X-axis (e.g. `12 AM`, `3 AM`, `6 AM`), with tick density reduced on mobile.
+  - **3 DAY**: hour-only labels on X-axis (unchanged).
+  - **ALL**: date labels on X-axis (unchanged).
 - **`.olt-chart-tooltip`** — Custom tooltip (dark bg, light text, radius, shadow).
 - **`.olt-chart-tooltip-date`**, **`.olt-chart-tooltip-row`**, **`.olt-chart-tooltip-label`**, **`.olt-chart-tooltip-value`** — Tooltip structure.
 
@@ -199,21 +203,50 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
   </header>
 
   <div class="olt-status-bar">
-    <div class="olt-stats">
-      <span class="olt-stat-item olt-stat-item--active">…</span>
-      <!-- MIN / AVG / MAX -->
+    <div class="olt-status-left">
+      <div class="olt-stats-note">Live market stats</div>
+      <div
+        class="olt-toggle-group olt-toggle-group--stat"
+        role="group"
+        aria-label="Price metric"
+        data-active-index="0"
+      >
+        <span class="olt-toggle-pill" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="olt-toggle olt-toggle--stat"
+          aria-pressed="true"
+        >
+          <span class="olt-toggle-stat-price">$125</span
+          ><span class="olt-toggle-stat-label">MIN</span>
+        </button>
+        <button
+          type="button"
+          class="olt-toggle olt-toggle--stat"
+          aria-pressed="false"
+        >
+          <span class="olt-toggle-stat-price">$285</span
+          ><span class="olt-toggle-stat-label">AVG</span>
+        </button>
+        <button
+          type="button"
+          class="olt-toggle olt-toggle--stat"
+          aria-pressed="false"
+        >
+          <span class="olt-toggle-stat-price">$450</span
+          ><span class="olt-toggle-stat-label">MAX</span>
+        </button>
+      </div>
     </div>
     <div class="olt-controls">
-      <div class="olt-toggle-group olt-toggle-group--metric" data-active-index="1">
+      <div
+        class="olt-toggle-group olt-toggle-group--range"
+        data-active-index="0"
+      >
         <span class="olt-toggle-pill" aria-hidden="true"></span>
-        <button class="olt-toggle" aria-pressed="true">MIN</button>
-        <button class="olt-toggle" aria-pressed="false">AVG</button>
-        <button class="olt-toggle" aria-pressed="false">MAX</button>
-      </div>
-      <div class="olt-toggle-group olt-toggle-group--range" data-active-index="0">
-        <span class="olt-toggle-pill" aria-hidden="true"></span>
-        <button class="olt-toggle" aria-pressed="true">3 DAY</button>
-        <button class="olt-toggle" aria-pressed="false">All</button>
+        <button class="olt-toggle" aria-pressed="true">24 HR</button>
+        <button class="olt-toggle" aria-pressed="false">3 DAY</button>
+        <button class="olt-toggle" aria-pressed="false">ALL</button>
       </div>
     </div>
   </div>
@@ -241,7 +274,8 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 - **Currency**: Use `$` + whole number or two decimals (e.g. `$125` or `$125.50`). Widget uses rounded whole dollars in stats/chart.
 - **24h change**: Show as percentage with sign (e.g. `+5.2%`, `-3.1%`). Green for down (good for buyers), red for up.
-- **24h change N/A**: If there is no valid 24h comparison, the backend should return `null` for `change_24h`. The UI should render this as **N/A** (or hide the badge), never `0%`.
+- **24h change**: The badge shows the 24h change for the **currently selected metric** (MIN/AVG/MAX), using backend-provided `change_24h_min`, `change_24h_avg`, and `change_24h_max` from `get_current_prices`.
+- **24h change N/A**: When there is no valid 24h comparison for the selected metric, the badge shows **N/A**, never `0%`.
 - **Labels**: Uppercase for stat labels (MIN, AVG, MAX) and toggle text (3 DAY, All).
 - **Missing buckets (null values)**: For some timestamps there may be no eligible listings, so a metric can be `null`. Treat `null` as **missing data (a gap)**. Never coerce `null` to `0`—that can create impossible visuals (e.g. showing `MAX=$0` while `MIN=$507` for the same bucket).
 
@@ -265,6 +299,6 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 ## Implementation Notes
 
-- Styles are injected into the Shadow DOM as a single concatenated string (tokens + components) via `embed/src/bootstrap/styles.js`.
+- Styles are injected into the Shadow DOM as a single concatenated string (tokens + components) via `app/embed/src/bootstrap/styles.js`.
 - Do not rely on host Tailwind or global CSS; the widget is self-contained.
 - Treat class names as part of the embed contract; avoid breaking renames.

@@ -109,19 +109,17 @@ In simple terms: It’s a custom script that runs _inside_ the database instead 
 - **Output**: The `recorded_date` plus min/avg/max prices needed for the "All-Time" view of the chart.
 - **Null buckets**: Same idea as hourly—daily rows may contain `null` metrics if no eligible listings existed for that day. Render as a gap, not `0`.
 
+#### `get_24h_changes(p_te_event_id)`
+
+- **What it does**: Returns per-metric 24h percentage changes (min, avg, max) by comparing the latest hourly bucket to the bucket at ~24 hours ago.
+- **Inputs**: The Ticket Evolution event ID.
+- **Output**: A single row with `change_24h_min`, `change_24h_avg`, `change_24h_max` (each `numeric`, or null when no valid comparison for that metric).
+
 #### `get_current_prices(p_te_event_id)`
 
-- **What it does**: Returns the latest snapshot of prices for a given event, plus how much they changed in the last 24 hours.
+- **What it does**: Returns the latest snapshot of prices for a given event plus per-metric 24h changes (from `get_24h_changes`).
 - **Inputs**: The Ticket Evolution event ID.
-- **Output**: A single row with `min_price`, `avg_price`, `max_price`, `listing_count`, `last_updated`, and `change_24h` (percentage change).
-- **`change_24h` can be null**: When there is no valid 24h comparison point (not enough history, or the 24h‑ago bucket is missing), the backend should return `null`. The frontend should treat this as **N/A**, not `0%`.
-
-#### `get_24h_change(p_te_event_id)`
-
-- **What it does**: Calculates just the 24‑hour price change for an event.
-- **Inputs**: The Ticket Evolution event ID.
-- **Output**: A single number representing the percent change over the last 24 hours.
-- **Invalid comparisons**: If there is no valid comparison point (e.g. not enough history yet, or the ~24h‑ago bucket has no eligible listings), this should return `null` (or `get_current_prices.change_24h` should be `null`). The frontend should treat this as **N/A**, not `0%`.
+- **Output**: A single row with `min_price`, `avg_price`, `max_price`, `listing_count`, `last_updated`, `change_24h_min`, `change_24h_avg`, `change_24h_max`. Each change column can be null when there is no valid 24h comparison for that metric. The frontend uses the column for the currently selected metric (MIN/AVG/MAX) for the 24h badge.
 
 #### `rollup_hourly_to_daily()`
 
