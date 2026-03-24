@@ -4,43 +4,42 @@ import { TEPreviewResults } from './TEPreviewResults.jsx'
 export function TEPreviewSection({
   rows,
   totalPreviewRows = 0,
+  loadedCount = 0,
   page = 1,
   pageSize = 10,
   onPrevPage,
   onNextPage,
   selectedIds,
   onToggleSelected,
-  onSelectAllVisible,
+  onSelectAll,
+  totalSelectable = 0,
   onClearSelection,
   onAddSelected,
   adding,
-  statusMessage,
-  errorMessage,
+  titleFilter = '',
+  onTitleFilterChange,
+  onClearTitleFilter,
 }) {
   return (
     <div className="em-add-events-preview">
       <div className="em-add-events-preview__toolbar">
         <TEPreviewActions
           selectedCount={selectedIds.length}
-          onSelectAllVisible={onSelectAllVisible}
+          totalSelectable={totalSelectable}
+          onSelectAll={onSelectAll}
           onClearSelection={onClearSelection}
           onAddSelected={onAddSelected}
           adding={adding}
+          loadedCount={loadedCount}
+          titleFilter={titleFilter}
+          onTitleFilterChange={onTitleFilterChange}
+          onClearTitleFilter={onClearTitleFilter}
         />
-        {statusMessage ? (
-          <div className="em-note em-note--inline em-note--compact em-note--success" role="status" aria-live="polite">
-            {statusMessage}
-          </div>
-        ) : null}
-        {errorMessage ? (
-          <div className="em-note em-note--inline em-note--compact em-note--error" role="alert">
-            {errorMessage}
-          </div>
-        ) : null}
       </div>
       <TEPreviewResults
         rows={rows}
         total={totalPreviewRows}
+        loadedCount={loadedCount}
         page={page}
         pageSize={pageSize}
         onPrevPage={onPrevPage}
@@ -51,4 +50,3 @@ export function TEPreviewSection({
     </div>
   )
 }
-

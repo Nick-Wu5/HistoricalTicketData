@@ -1,24 +1,27 @@
 import { TEQueryForm } from './TEQueryForm.jsx'
 import { TEPreviewSection } from '../te-preview/TEPreviewSection.jsx'
+import { Toast } from '../shared/Toast.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addSelectedEventsFromPreview } from '../../api/addSelectedEvents.js'
-import { TRACKED_EVENTS_PAGE_SIZE } from '../../api/trackedEvents.js'
-import { SectionHeader } from '../layout/SectionHeader.jsx'
+import { useViewportPageSize } from '../../hooks/useViewportPageSize.js'
 
 export function TEQuerySection() {
+  const previewPageSize = useViewportPageSize()
   const [mode, setMode] = useState('single')
   const [previewRows, setPreviewRows] = useState([])
   const [previewPage, setPreviewPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState([])
   const [teEventsById, setTeEventsById] = useState({})
   const [adding, setAdding] = useState(false)
-  const [statusMessage, setStatusMessage] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastVariant, setToastVariant] = useState('success')
+  /** Client-side title filter (substring, case-insensitive); does not call the API. */
+  const [titleFilter, setTitleFilter] = useState('')
+
+  const clearToast = useCallback(() => setToastMsg(''), [])
 
   async function handleQuerySuccess(events) {
-    setStatusMessage('')
-    setErrorMessage('')
     const eventRows = Array.isArray(events) ? events : []
     const nextEventsById = {}
     for (const event of eventRows) {
@@ -59,16 +62,29 @@ export function TEQuerySection() {
     setPreviewRows(rows)
     setPreviewPage(1)
     setSelectedIds([])
+    setTitleFilter('')
   }
 
-  const previewPageSize = TRACKED_EVENTS_PAGE_SIZE
-  const previewTotal = previewRows.length
+  const filteredPreviewRows = useMemo(() => {
+    const q = titleFilter.trim().toLowerCase()
+    if (!q) return previewRows
+    return previewRows.filter((row) =>
+      String(row.title ?? '').toLowerCase().includes(q),
+    )
+  }, [previewRows, titleFilter])
+
+  const previewTotal = filteredPreviewRows.length
+  const loadedCount = previewRows.length
   const previewTotalPages = Math.max(1, Math.ceil(previewTotal / previewPageSize))
 
   const previewPageRows = useMemo(() => {
     const from = (previewPage - 1) * previewPageSize
-    return previewRows.slice(from, from + previewPageSize)
-  }, [previewRows, previewPage, previewPageSize])
+    return filteredPreviewRows.slice(from, from + previewPageSize)
+  }, [filteredPreviewRows, previewPage, previewPageSize])
+
+  useEffect(() => {
+    setPreviewPage(1)
+  }, [titleFilter])
 
   useEffect(() => {
     if (previewPage > previewTotalPages) setPreviewPage(previewTotalPages)
@@ -77,8 +93,6 @@ export function TEQuerySection() {
   async function handleAddSelected() {
     if (adding || selectedIds.length === 0) return
     setAdding(true)
-    setStatusMessage('')
-    setErrorMessage('')
     try {
       const result = await addSelectedEventsFromPreview({
         selectedIds,
@@ -89,11 +103,14 @@ export function TEQuerySection() {
       const duplicateCount = result?.duplicateCount ?? 0
 
       if (addedCount > 0 && duplicateCount === 0) {
-        setStatusMessage(`Added ${addedCount} event(s).`)
+        setToastVariant('success')
+        setToastMsg(`Added ${addedCount} event${addedCount === 1 ? '' : 's'}`)
       } else if (addedCount > 0 && duplicateCount > 0) {
-        setStatusMessage(`Added ${addedCount}. Skipped ${duplicateCount} already in database.`)
+        setToastVariant('success')
+        setToastMsg(`Added ${addedCount}, skipped ${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'}`)
       } else {
-        setStatusMessage('No events added. All selected items are already in database.')
+        setToastVariant('empty')
+        setToastMsg('All selected events already tracked')
       }
 
       if (addedCount > 0) {
@@ -105,7 +122,8 @@ export function TEQuerySection() {
       }
       setSelectedIds([])
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : String(err))
+      setToastVariant('error')
+      setToastMsg(err instanceof Error ? err.message : 'Failed to add events')
     } finally {
       setAdding(false)
     }
@@ -121,12 +139,14 @@ export function TEQuerySection() {
     setSelectedIds([])
   }
 
-  function selectAllVisible() {
-    const from = (previewPage - 1) * previewPageSize
-    const pageSlice = previewRows.slice(from, from + previewPageSize)
-    const selectable = pageSlice.filter((row) => !row.alreadyAdded).map((row) => row.te_event_id)
+  function selectAll() {
+    const selectable = filteredPreviewRows
+      .filter((row) => !row.alreadyAdded)
+      .map((row) => row.te_event_id)
     setSelectedIds(selectable)
   }
+
+  const totalSelectable = filteredPreviewRows.filter((row) => !row.alreadyAdded).length
 
   function handlePreviewPrevPage() {
     setPreviewPage((p) => Math.max(1, p - 1))
@@ -138,41 +158,38 @@ export function TEQuerySection() {
 
   return (
     <div className="em-stack em-stack--add-events">
-      <SectionHeader
-        className="em-section-header--add-events"
-        title="Add Events"
-        subtitle="Fetch and preview Ticket Evolution events before adding"
-        rightActions={
-          <div
-            className="olt-toggle-group olt-toggle-group--dual"
-            role="group"
-            aria-label="Event query mode"
-            data-active-index={mode === 'single' ? 0 : 1}
+      <div className="em-tab-toolbar">
+        <p className="em-tab-hint">Fetch and preview Ticket Evolution events before adding</p>
+        <div
+          className="olt-toggle-group olt-toggle-group--dual"
+          role="group"
+          aria-label="Event query mode"
+          data-active-index={mode === 'single' ? 0 : 1}
+        >
+          <span className="olt-toggle-pill" aria-hidden="true" />
+          <button
+            type="button"
+            className="olt-toggle"
+            onClick={() => setMode('single')}
+            aria-pressed={mode === 'single'}
           >
-            <span className="olt-toggle-pill" aria-hidden="true" />
-            <button
-              type="button"
-              className="olt-toggle"
-              onClick={() => setMode('single')}
-              aria-pressed={mode === 'single'}
-            >
-              Single Event
-            </button>
-            <button
-              type="button"
-              className="olt-toggle"
-              onClick={() => setMode('bulk')}
-              aria-pressed={mode === 'bulk'}
-            >
-              Bulk Events
-            </button>
-          </div>
-        }
-      />
+            Single Event
+          </button>
+          <button
+            type="button"
+            className="olt-toggle"
+            onClick={() => setMode('bulk')}
+            aria-pressed={mode === 'bulk'}
+          >
+            Bulk Events
+          </button>
+        </div>
+      </div>
       <TEQueryForm mode={mode} onQuerySuccess={handleQuerySuccess} />
       <TEPreviewSection
         rows={previewPageRows}
         totalPreviewRows={previewTotal}
+        loadedCount={loadedCount}
         page={previewPage}
         pageSize={previewPageSize}
         onPrevPage={handlePreviewPrevPage}
@@ -180,13 +197,15 @@ export function TEQuerySection() {
         selectedIds={selectedIds}
         onToggleSelected={toggleSelected}
         onClearSelection={clearSelection}
-        onSelectAllVisible={selectAllVisible}
+        onSelectAll={selectAll}
+        totalSelectable={totalSelectable}
         onAddSelected={handleAddSelected}
         adding={adding}
-        statusMessage={statusMessage}
-        errorMessage={errorMessage}
+        titleFilter={titleFilter}
+        onTitleFilterChange={setTitleFilter}
+        onClearTitleFilter={() => setTitleFilter('')}
       />
+      <Toast message={toastMsg} variant={toastVariant} onDone={clearToast} />
     </div>
   )
 }
-

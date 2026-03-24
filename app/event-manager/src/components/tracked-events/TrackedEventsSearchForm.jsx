@@ -11,31 +11,27 @@ export function TrackedEventsSearchForm({
 }) {
   return (
     <form
-      className="em-form"
+      className="em-search-bar"
       onSubmit={(e) => {
         e.preventDefault()
         onSearch?.()
       }}
     >
-      <div className="em-form-row">
-        <TextInput
-          label="TE Event ID"
-          placeholder="e.g. 2795412"
-          value={teEventId}
-          onChange={(e) => onTeEventIdChange?.(e.target.value)}
-        />
-        <TextInput
-          label="Event Name"
-          placeholder="Search title…"
-          value={eventName}
-          onChange={(e) => onEventNameChange?.(e.target.value)}
-        />
-      </div>
-      <div className="em-form-actions em-form-actions--single">
-        <Button type="submit" variant="primary" disabled={loading}>
-          {loading ? 'Searching…' : 'Search'}
-        </Button>
-      </div>
+      <TextInput
+        label="TE Event ID"
+        placeholder="e.g. 2795412"
+        value={teEventId}
+        onChange={(e) => onTeEventIdChange?.(e.target.value)}
+      />
+      <TextInput
+        label="Event Name"
+        placeholder="Search title…"
+        value={eventName}
+        onChange={(e) => onEventNameChange?.(e.target.value)}
+      />
+      <Button type="submit" variant="primary" disabled={loading}>
+        {loading ? 'Searching…' : 'Search'}
+      </Button>
     </form>
   )
 }
