@@ -4,7 +4,7 @@ import { TruncatedCell } from '../shared/TruncatedCell.jsx'
 import { renderCell, formatDateShort } from '../../lib/formatCell.js'
 
 const EVENT_COLUMNS = [
-  { key: 'te_event_id', label: 'te_event_id', width: '7%' },
+  { key: 'te_event_id', label: 'te_event_id', width: '8%', minWidth: '92px' },
   { key: 'title', label: 'title', truncate: 'title', width: '36%' },
   { key: 'starts_at', label: 'starts_at', date: true, width: '10%' },
   { key: 'polling_enabled', label: 'polling', width: '7%' },
@@ -73,7 +73,7 @@ export function TrackedEventsResults({
         <table className="em-table em-table--fixed" aria-label="Tracked events">
           <colgroup>
             {EVENT_COLUMNS.map((col) => (
-              <col key={col.key} style={{ width: col.width }} />
+              <col key={col.key} style={{ width: col.width, minWidth: col.minWidth }} />
             ))}
           </colgroup>
           <thead>
