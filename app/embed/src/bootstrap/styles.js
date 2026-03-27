@@ -21,5 +21,3 @@ export function injectScopedStyles(shadowRoot) {
   // Prepend styles so inline styles can override if needed
   shadowRoot.insertBefore(styleElement, shadowRoot.firstChild);
 }
-
-export default injectScopedStyles;

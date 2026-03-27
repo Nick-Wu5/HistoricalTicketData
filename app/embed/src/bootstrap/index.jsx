@@ -80,8 +80,6 @@ function mount(target, config) {
       </React.StrictMode>,
     );
 
-    // Store config on element for later reference (if needed)
-    target._widgetConfig = config;
     target._widgetRoot = root;
   } catch (error) {
     console.error("TicketWidget: failed to mount widget", error);

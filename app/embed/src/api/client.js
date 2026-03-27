@@ -8,9 +8,9 @@
  *
  * The embed widget uses this client to fetch:
  * - Event metadata (title, olt_url, ends_at, ended_at)
- * - Current prices (min, avg, max, listing_count, last_updated, and per-metric 24h change)
+ * - Current prices (min, avg, max, listing_count, last_updated, and per-metric 24h change fields)
  * - Chart data (hourly for 3-day view, daily for all-time view)
- * The 24h change badge uses change_24h_min / change_24h_avg / change_24h_max from the backend for the selected metric.
+ * The badge in App is range-driven from chart data; change_24h_* fields remain available on current prices.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -396,65 +396,4 @@ export async function fetchWidgetData({
     console.error("fetchWidgetData error:", error);
     throw error;
   }
-}
-
-/**
- * Fetch only chart data. Standalone API for optional use (e.g. chart-only views).
- * App uses fetchWidgetData which includes chart data.
- *
- * @param {Object} options
- * @param {string|number} options.eventId
- * @param {'3day'|'alltime'} options.timeRange
- * @param {'real'|'mock'} options.mode
- * @returns {Promise<ChartDataPoint[]>}
- */
-export async function fetchChartData({
-  eventId,
-  timeRange = "3day",
-  mode = "real",
-}) {
-  const teEventId =
-    typeof eventId === "number" ? eventId : parseInt(eventId, 10);
-
-  // Mock mode (also used when Supabase isn't configured)
-  if (mode === "mock" || !SUPABASE_ANON_KEY) {
-    return generateMockChartData(timeRange);
-  }
-
-  // Real mode requires valid numeric ID
-  if (isNaN(teEventId)) {
-    throw new Error(`Invalid event ID: ${eventId}`);
-  }
-
-  // Real mode
-  // All-time view uses smart selection: hourly if <7 days, daily otherwise
-  return timeRange === "3day"
-    ? fetchChartDataHourly(teEventId)
-    : fetchChartDataAllTime(teEventId);
-}
-
-/**
- * Build the "Buy Tickets" URL from event data.
- * Falls back to OLT search if olt_url is not available.
- *
- * @param {EventMetadata} event
- * @returns {string}
- */
-export function getBuyTicketsUrl(event) {
-  if (event.olt_url) {
-    return event.olt_url;
-  }
-  // Fallback: search on OLT
-  const searchQuery = encodeURIComponent(event.title || "");
-  return `https://onlylocaltickets.com/search?q=${searchQuery}`;
-}
-
-/**
- * Check if the Supabase client is configured.
- * Useful for determining whether to show mock data warning.
- *
- * @returns {boolean}
- */
-export function isSupabaseConfigured() {
-  return Boolean(SUPABASE_ANON_KEY);
 }

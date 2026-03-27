@@ -4,6 +4,42 @@ import PriceStats from "./components/PriceStats";
 import ChangeBadge from "./components/ChangeBadge";
 import { fetchWidgetData } from "./api/client";
 
+const RANGE_BADGE_META = {
+  "24h": {
+    label: "24h",
+    ariaLabel: "24 hour change",
+  },
+  "3day": {
+    label: "3d",
+    ariaLabel: "3 day change",
+  },
+  alltime: {
+    label: "All",
+    ariaLabel: "change since first tracked",
+  },
+};
+
+function getMetricField(metric) {
+  return metric === "avg" ? "avg_price" : metric === "max" ? "max_price" : "min_price";
+}
+
+function computeRangePercentChange(points, metricField) {
+  if (!Array.isArray(points) || points.length < 2) return null;
+
+  let first = null;
+  let last = null;
+
+  for (const point of points) {
+    const value = Number(point?.[metricField]);
+    if (!Number.isFinite(value)) continue;
+    if (first == null) first = value;
+    last = value;
+  }
+
+  if (first == null || last == null || first === 0) return null;
+  return ((last - first) / first) * 100;
+}
+
 function App({ config }) {
   const [currentData, setCurrentData] = useState(null);
   const [chartData, setChartData] = useState([]);
@@ -80,13 +116,6 @@ function App({ config }) {
     });
   }, [chartData, timeRange]);
 
-  // Per-metric 24h change from backend (get_current_prices returns change_24h_min/avg/max).
-  const change24hByMetric = {
-    min: currentData?.change_24h_min ?? null,
-    avg: currentData?.change_24h_avg ?? null,
-    max: currentData?.change_24h_max ?? null,
-  };
-
   const formatChange = (value) => {
     if (value == null) return null;
     const sign = value >= 0 ? "+" : "";
@@ -121,12 +150,17 @@ function App({ config }) {
     `https://onlylocaltickets.com/events/${config.eventId}`;
   const eventTitle = currentData?.title || "Event";
 
-  // 24h badge reflects the selected metric (MIN/AVG/MAX).
-  const selectedChange24h = change24hByMetric[metric];
-  const changeValue = formatChange(selectedChange24h);
-  const isPositiveChange = (selectedChange24h ?? 0) < 0;
-  const isZeroChange = selectedChange24h === 0;
-  const show24hNa = selectedChange24h == null;
+  // Badge reflects selected metric + selected visible range.
+  const selectedMetricField = getMetricField(metric);
+  const selectedRangeChange = computeRangePercentChange(
+    displayedChartData,
+    selectedMetricField,
+  );
+  const changeValue = formatChange(selectedRangeChange);
+  const isPositiveChange = (selectedRangeChange ?? 0) < 0;
+  const isZeroChange = selectedRangeChange === 0;
+  const showRangeNa = selectedRangeChange == null;
+  const badgeMeta = RANGE_BADGE_META[timeRange] || RANGE_BADGE_META["3day"];
 
   const formatEventDate = (dateString) => {
     if (!dateString) return null;
@@ -157,7 +191,9 @@ function App({ config }) {
               isPositive={isPositiveChange}
               isZero={isZeroChange}
               visibility="mobile"
-              showNa={show24hNa}
+              showNa={showRangeNa}
+              label={badgeMeta.label}
+              ariaLabel={badgeMeta.ariaLabel}
             />
           </div>
           {eventDateTime && (
@@ -171,7 +207,9 @@ function App({ config }) {
             isPositive={isPositiveChange}
             isZero={isZeroChange}
             visibility="desktop"
-            showNa={show24hNa}
+            showNa={showRangeNa}
+            label={badgeMeta.label}
+            ariaLabel={badgeMeta.ariaLabel}
           />
           <a
             href={eventUrl}

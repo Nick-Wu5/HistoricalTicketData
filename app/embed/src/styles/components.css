@@ -132,18 +132,10 @@
   color: var(--olt-danger);
 }
 
-.olt-change--neutral {
-  background: var(--olt-surface-2);
-  color: var(--olt-muted);
-}
-
+.olt-change--neutral,
 .olt-change--na {
   background: var(--olt-surface-2);
   color: var(--olt-muted);
-}
-
-.olt-change-arrow {
-  font-size: 12px;
 }
 
 .olt-change-label {
@@ -184,13 +176,6 @@
   flex-wrap: wrap;
 }
 
-.olt-stats-note {
-  font-size: 11px;
-  color: var(--olt-muted);
-  line-height: 1.1;
-  opacity: 0.65;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    TOGGLE CONTROLS
    Pill-style segmented controls for metric (MIN/AVG/MAX) and
@@ -218,13 +203,7 @@
   max-width: 100%;
 }
 
-/* Metric group = 3 equal columns (legacy; stat selector now uses --stat) */
-.olt-toggle-group--metric {
-  grid-template-columns: repeat(3, 1fr);
-  min-width: 130px;
-}
-
-/* Stat selector: same pill/toggle style, sized for price + label (MIN/AVG/MAX) */
+/* Stat selector: pill/toggle style, sized for price + label (MIN/AVG/MAX) */
 .olt-toggle-group--stat {
   grid-template-columns: repeat(3, 1fr);
   min-width: 160px;
@@ -232,16 +211,6 @@
 
 .olt-toggle-group--stat .olt-toggle-pill {
   width: calc((100% - 4px) / 3);
-}
-
-.olt-toggle-group--stat[data-active-index="0"] .olt-toggle-pill {
-  transform: translateX(0%);
-}
-.olt-toggle-group--stat[data-active-index="1"] .olt-toggle-pill {
-  transform: translateX(100%);
-}
-.olt-toggle-group--stat[data-active-index="2"] .olt-toggle-pill {
-  transform: translateX(200%);
 }
 
 .olt-toggle--stat {
@@ -302,11 +271,6 @@
   box-shadow: var(--olt-shadow-pill);
   transition: transform var(--olt-transition-fast);
   will-change: transform;
-}
-
-/* Pill sizing by group columns */
-.olt-toggle-group--metric .olt-toggle-pill {
-  width: calc((100% - 4px) / 3);
 }
 
 .olt-toggle-group--range .olt-toggle-pill {
@@ -667,23 +631,3 @@ a.olt-btn-primary:hover {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   UTILITIES
-   Helper classes for visibility and accessibility.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.olt-hidden {
-  display: none !important;
-}
-
-.olt-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}

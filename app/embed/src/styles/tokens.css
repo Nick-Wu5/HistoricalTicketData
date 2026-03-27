@@ -15,10 +15,6 @@
     system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial",
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
 
-  --olt-font-mono:
-    ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas",
-    "Liberation Mono", "Courier New", monospace;
-
   /* ─────────────────────────────────────────────────
      Brand Colors (OLT official palette)
      ───────────────────────────────────────────────── */
@@ -75,7 +71,6 @@
   --olt-space-3: 12px;
   --olt-space-4: 16px;
   --olt-space-5: 20px;
-  --olt-space-6: 24px;
 
   /* ─────────────────────────────────────────────────
      Transitions
@@ -87,9 +82,6 @@
   /* ─────────────────────────────────────────────────
      Chart
      ───────────────────────────────────────────────── */
-  --olt-chart-line: var(--olt-brand-navy);
-  --olt-chart-accent: var(--olt-brand-blue);
-  --olt-chart-grid: rgba(0, 0, 0, 0.08);
   --olt-tooltip-bg: #111827;
   --olt-tooltip-text: #ffffff;
 
