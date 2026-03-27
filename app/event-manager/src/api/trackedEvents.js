@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { parseTeEventId } from '../types/contracts'
 
-export const TRACKED_EVENTS_PAGE_SIZE = 10
+const TRACKED_EVENTS_PAGE_SIZE = 10
 
 export async function fetchTrackedEvents({
   teEventId,

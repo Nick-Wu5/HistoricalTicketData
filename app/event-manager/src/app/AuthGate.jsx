@@ -20,6 +20,8 @@ export function AuthGate({ children }) {
       if (!isMounted) return
       setSession(data.session ?? null)
       setLoading(false)
+    }).catch(() => {
+      if (isMounted) setLoading(false)
     })
 
     const {

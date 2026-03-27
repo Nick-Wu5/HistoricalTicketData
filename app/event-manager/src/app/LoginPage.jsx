@@ -6,12 +6,10 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
   async function onSubmitSignIn(e) {
     e.preventDefault();
-    setSuccess("");
     setError("");
 
     if (!isSupabaseConfigured || !supabase) {
@@ -41,8 +39,6 @@ export function LoginPage() {
     setLoading(false);
     if (pwdError) {
       setError(pwdError.message);
-    } else {
-      setSuccess("Signed in successfully.");
     }
   }
 
@@ -83,7 +79,6 @@ export function LoginPage() {
           </div>
         </form>
 
-        {success ? <div className="em-auth-success">{success}</div> : null}
         {error ? <div className="em-auth-error">{error}</div> : null}
       </div>
     </div>
