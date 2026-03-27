@@ -3,6 +3,11 @@ import PriceChart from "./components/PriceChart";
 import PriceStats from "./components/PriceStats";
 import ChangeBadge from "./components/ChangeBadge";
 import { fetchWidgetData } from "./api/client";
+import {
+  getMetricField,
+  getLastValidMetricValue,
+  computeRangePercentChange,
+} from "./utils/chartMetrics";
 
 const RANGE_BADGE_META = {
   "24h": {
@@ -18,27 +23,6 @@ const RANGE_BADGE_META = {
     ariaLabel: "change since first tracked",
   },
 };
-
-function getMetricField(metric) {
-  return metric === "avg" ? "avg_price" : metric === "max" ? "max_price" : "min_price";
-}
-
-function computeRangePercentChange(points, metricField) {
-  if (!Array.isArray(points) || points.length < 2) return null;
-
-  let first = null;
-  let last = null;
-
-  for (const point of points) {
-    const value = Number(point?.[metricField]);
-    if (!Number.isFinite(value)) continue;
-    if (first == null) first = value;
-    last = value;
-  }
-
-  if (first == null || last == null || first === 0) return null;
-  return ((last - first) / first) * 100;
-}
 
 function App({ config }) {
   const [currentData, setCurrentData] = useState(null);
@@ -150,6 +134,12 @@ function App({ config }) {
     `https://onlylocaltickets.com/events/${config.eventId}`;
   const eventTitle = currentData?.title || "Event";
 
+  // Stat bar: derive displayed prices from the last valid chart datapoint
+  // so stats, badge, and chart all reflect the same visible dataset.
+  const chartMin = getLastValidMetricValue(displayedChartData, "min_price");
+  const chartAvg = getLastValidMetricValue(displayedChartData, "avg_price");
+  const chartMax = getLastValidMetricValue(displayedChartData, "max_price");
+
   // Badge reflects selected metric + selected visible range.
   const selectedMetricField = getMetricField(metric);
   const selectedRangeChange = computeRangePercentChange(
@@ -226,9 +216,9 @@ function App({ config }) {
       <div className="olt-status-bar">
         <div className="olt-status-row">
           <PriceStats
-            min={currentData?.min_price}
-            avg={currentData?.avg_price}
-            max={currentData?.max_price}
+            min={chartMin}
+            avg={chartAvg}
+            max={chartMax}
             activeMetric={metric}
             onMetricChange={setMetric}
           />

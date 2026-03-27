@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { isValidMetricValue } from "../utils/chartMetrics";
 
 /**
  * PriceChart component wraps Recharts AreaChart to display historical pricing.
@@ -66,10 +67,8 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
     let max = -Infinity;
 
     for (const point of data) {
-      const raw = point[key];
-      const v =
-        typeof raw === "number" && Number.isFinite(raw) ? raw : null;
-      if (v != null) {
+      const v = point[key];
+      if (isValidMetricValue(v)) {
         if (v < min) min = v;
         if (v > max) max = v;
       }
@@ -101,11 +100,9 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
     if (!data || data.length === 0) return [];
     return data.map((point) => {
       const raw = point[dataKey];
-      const safe =
-        typeof raw === "number" && Number.isFinite(raw) ? raw : null;
       return {
         ...point,
-        display_price: safe,
+        display_price: isValidMetricValue(raw) ? raw : null,
       };
     });
   }, [data, dataKey]);
@@ -175,10 +172,9 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
     const timestamp = point?.timestamp ?? label;
     const date = timestamp ? new Date(timestamp) : null;
 
-    const value =
-      typeof point?.display_price === "number" && Number.isFinite(point.display_price)
-        ? `$${Math.round(point.display_price)}`
-        : "N/A";
+    const value = isValidMetricValue(point?.display_price)
+      ? `$${Math.round(point.display_price)}`
+      : "N/A";
 
     return (
       <div className="olt-chart-tooltip">
