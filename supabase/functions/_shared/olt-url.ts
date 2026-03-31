@@ -65,7 +65,7 @@ function formatTimeSlug(dateObj: Date, tz = DEFAULT_TZ): string {
 
 /**
  * Format date parts for the slug: day name, day number, month.
- * Matches OLT_dateSlugParts_ from prior-implementation.js
+ * Matches OLT_dateSlugParts_ from docs/reference/prior-implementation.js
  * Uses "d" (not "dd") for day number to avoid leading zeros
  */
 function dateSlugParts(dateObj: Date, tz = DEFAULT_TZ): {

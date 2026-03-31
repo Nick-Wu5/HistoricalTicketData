@@ -2,7 +2,6 @@
   "name": "historicalticketdata",
   "version": "1.0.0",
   "description": "",
-  "main": "demo-poller-logic.js",
   "directories": {
     "doc": "docs"
   },
@@ -10,7 +9,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "gen:types": "supabase gen types typescript --project-id tusmcdkrlzsakwbbqpvs --schema public > supabase/database.types.ts",
     "populate:events:performer": "node scripts/populateEventsByPerformer.js",
-    "populate:events:performer:new-only": "node scripts/populateEventsByPerformer.js --insert_only_new=true"
+    "populate:events:performer:new-only": "node scripts/populateEventsByPerformer.js --insert_only_new=true",
+    "te:query-checklist": "node scripts/generateTeQueryChecklist.js"
   },
   "repository": {
     "type": "git",

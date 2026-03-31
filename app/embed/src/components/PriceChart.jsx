@@ -17,7 +17,7 @@ import { isValidMetricValue } from "../utils/chartMetrics";
  * Props:
  * - data: Array of { timestamp (ISO string), min_price, avg_price, max_price }
  * - metric: 'min' | 'avg' | 'max' - which line to display (default: 'min' - starting price)
- * - timeRange: '3day' | 'alltime' - affects X-axis label format
+ * - timeRange: '24h' | '3day' | 'alltime' - affects X-axis label format
  */
 
 // Keep line/timeline animations controlled via a single duration constant so they feel aligned.
@@ -107,6 +107,20 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
     });
   }, [data, dataKey]);
 
+  const parseTimestampForDisplay = (timestamp) => {
+    if (typeof timestamp !== "string" || timestamp.length === 0) return null;
+    // IMPORTANT: date-only strings (YYYY-MM-DD) are interpreted as UTC midnight by Date(),
+    // which can shift to the previous day in local time. Use UTC midday to keep the
+    // intended calendar day stable for display.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(timestamp)) {
+      const [y, m, d] = timestamp.split("-").map((n) => parseInt(n, 10));
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    }
+    const date = new Date(timestamp);
+    return Number.isFinite(date.getTime()) ? date : null;
+  };
+
   // Chart colors (match --olt-brand-navy, --olt-brand-blue from tokens.css)
   const CHART_LINE_COLOR = "#2C356D";
   const GRADIENT_OPACITY_TOP = 0.15;
@@ -135,7 +149,8 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
 
   // Format timestamp for X-axis
   const formatXAxis = (timestamp) => {
-    const date = new Date(timestamp);
+    const date = parseTimestampForDisplay(timestamp);
+    if (!date) return "";
     if (timeRange === "24h") {
       // Intraday view: hour-of-day labels like "12 AM", "3 AM", "6 AM".
       return date.toLocaleTimeString("en-US", {
@@ -170,7 +185,7 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
 
     const point = payload?.[0]?.payload;
     const timestamp = point?.timestamp ?? label;
-    const date = timestamp ? new Date(timestamp) : null;
+    const date = parseTimestampForDisplay(timestamp);
 
     const value = isValidMetricValue(point?.display_price)
       ? `$${Math.round(point.display_price)}`
@@ -189,9 +204,16 @@ function PriceChart({ data = [], metric = "min", timeRange = "3day" }) {
           </div>
         )}
         <div className="olt-chart-tooltip-row">
-          <span className="olt-chart-tooltip-label">{metric.toUpperCase()}:</span>
+          <span className="olt-chart-tooltip-label">
+            {metric.toUpperCase()}:
+          </span>
           <span className="olt-chart-tooltip-value">{value}</span>
         </div>
+        {point?.is_working_aggregate === true && (
+          <div className="olt-chart-tooltip-row">
+            <span className="olt-chart-tooltip-label">Working Aggregate</span>
+          </div>
+        )}
       </div>
     );
   };

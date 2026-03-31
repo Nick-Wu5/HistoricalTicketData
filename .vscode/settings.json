@@ -2,8 +2,7 @@
   "deno.enablePaths": [
     "supabase/functions",
     "tests",
-    "scripts",
-    "test-poller-aligned.ts"
+    "scripts"
   ],
   "deno.lint": true,
   "deno.unstable": [

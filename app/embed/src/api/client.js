@@ -58,9 +58,10 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 /**
  * @typedef {Object} ChartDataPoint
  * @property {string} timestamp - ISO timestamp (recorded_at or recorded_date)
- * @property {number} min_price
- * @property {number} avg_price
- * @property {number} max_price
+ * @property {number|null} min_price
+ * @property {number|null} avg_price
+ * @property {number|null} max_price
+ * @property {boolean=} is_working_aggregate - True when this is a synthetic "today so far" point
  */
 
 /**
@@ -205,6 +206,123 @@ async function fetchChartDataDaily(teEventId) {
  * If less than this many days of daily data exist, use hourly instead.
  */
 const ALL_TIME_DAILY_THRESHOLD = 7;
+const ALL_TIME_WORKING_DAY_HOURS = 24;
+
+function toMs(timestamp) {
+  const ms = new Date(timestamp).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function toUtcDayKey(timestamp) {
+  if (typeof timestamp !== "string" || timestamp.length === 0) return null;
+  // Preserve YYYY-MM-DD date-only values as-is to avoid timezone shifts.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(timestamp)) return timestamp;
+  const ms = toMs(timestamp);
+  if (ms == null) return null;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function isFiniteMetricValue(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function hasAnyFiniteMetric(point) {
+  if (!point || typeof point !== "object") return false;
+  return (
+    isFiniteMetricValue(point.min_price) ||
+    isFiniteMetricValue(point.avg_price) ||
+    isFiniteMetricValue(point.max_price)
+  );
+}
+
+function computeWorkingDayAggregate(hourlyData) {
+  if (!Array.isArray(hourlyData) || hourlyData.length === 0) return null;
+
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const todayPoints = hourlyData.filter(
+    (p) => toUtcDayKey(p?.timestamp) === todayUtc,
+  );
+  if (todayPoints.length === 0) return null;
+
+  let minOfMin = null;
+  let sumAvg = 0;
+  let avgCount = 0;
+  let maxOfMax = null;
+
+  for (const p of todayPoints) {
+    if (isFiniteMetricValue(p?.min_price)) {
+      minOfMin = minOfMin == null ? p.min_price : Math.min(minOfMin, p.min_price);
+    }
+    if (isFiniteMetricValue(p?.avg_price)) {
+      sumAvg += p.avg_price;
+      avgCount += 1;
+    }
+    if (isFiniteMetricValue(p?.max_price)) {
+      maxOfMax = maxOfMax == null ? p.max_price : Math.max(maxOfMax, p.max_price);
+    }
+  }
+
+  const getLastValidMetric = (points, metricField) => {
+    for (let i = points.length - 1; i >= 0; i--) {
+      const value = points[i]?.[metricField];
+      if (isFiniteMetricValue(value)) return value;
+    }
+    return null;
+  };
+
+  // If today's rows exist but all metrics are missing (e.g. no eligible listings),
+  // carry forward the most recent valid hourly values so the "today so far" point
+  // remains visible at daily density.
+  if (minOfMin == null && avgCount === 0 && maxOfMax == null) {
+    minOfMin = getLastValidMetric(hourlyData, "min_price");
+    const fallbackAvg = getLastValidMetric(hourlyData, "avg_price");
+    if (fallbackAvg != null) {
+      sumAvg = fallbackAvg;
+      avgCount = 1;
+    }
+    maxOfMax = getLastValidMetric(hourlyData, "max_price");
+  }
+
+  return {
+    timestamp: todayUtc,
+    min_price: minOfMin,
+    avg_price: avgCount > 0 ? sumAvg / avgCount : null,
+    max_price: maxOfMax,
+    is_working_aggregate: true,
+  };
+}
+
+function mergeDailyWithWorkingDayAggregate(dailyData, workingPoint) {
+  if (!workingPoint) return Array.isArray(dailyData) ? dailyData : [];
+  if (!Array.isArray(dailyData) || dailyData.length === 0) return [workingPoint];
+
+  // If the working aggregate has no finite metric values, carry forward the most
+  // recent valid daily values so "today so far" still renders as a visible point.
+  let resolvedWorkingPoint = workingPoint;
+  if (!hasAnyFiniteMetric(resolvedWorkingPoint)) {
+    for (let i = dailyData.length - 1; i >= 0; i--) {
+      const prior = dailyData[i];
+      if (!hasAnyFiniteMetric(prior)) continue;
+      resolvedWorkingPoint = {
+        timestamp: workingPoint.timestamp,
+        min_price: isFiniteMetricValue(prior.min_price) ? prior.min_price : null,
+        avg_price: isFiniteMetricValue(prior.avg_price) ? prior.avg_price : null,
+        max_price: isFiniteMetricValue(prior.max_price) ? prior.max_price : null,
+        is_working_aggregate: true,
+      };
+      break;
+    }
+  }
+
+  const todayUtc = toUtcDayKey(resolvedWorkingPoint.timestamp);
+  const merged = dailyData.map((p) =>
+    toUtcDayKey(p?.timestamp) === todayUtc ? resolvedWorkingPoint : p,
+  );
+
+  const hasToday = merged.some((p) => toUtcDayKey(p?.timestamp) === todayUtc);
+  if (hasToday) return merged;
+  return [...merged, resolvedWorkingPoint];
+}
 
 /**
  * Fetch chart data for all-time view with smart aggregation.
@@ -218,7 +336,12 @@ async function fetchChartDataAllTime(teEventId) {
 
   // If we have enough daily data, use it
   if (dailyData.length >= ALL_TIME_DAILY_THRESHOLD) {
-    return dailyData;
+    const recentHourlyData = await fetchChartDataHourly(
+      teEventId,
+      ALL_TIME_WORKING_DAY_HOURS,
+    );
+    const workingPoint = computeWorkingDayAggregate(recentHourlyData);
+    return mergeDailyWithWorkingDayAggregate(dailyData, workingPoint);
   }
 
   // Otherwise, fetch hourly data for better density

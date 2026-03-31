@@ -1,5 +1,15 @@
 node_modules/
 .env
+.env.*
+!.env.example
 dist/
 build/
 .DS_Store
+.cursor/*.log
+*.log
+logs/
+coverage/
+.nyc_output/
+.eslintcache
+*.tsbuildinfo
+.cache/

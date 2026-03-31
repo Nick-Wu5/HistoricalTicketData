@@ -3,7 +3,7 @@
  * Ticket Evolution performer-based event population script.
  *
  * Fetches TE Events/Index by performer_id and writes to Supabase public.events.
- * Designed for World Cup bulk ingestion (target: 104 events), and safe reruns.
+ * Designed for bulk ingestion by performer and safe reruns.
  *
  * --------------------------------------------------------------------------
  * Usage

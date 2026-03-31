@@ -24,7 +24,6 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 ### Typography
 
 - **`--olt-font-sans`**: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", emoji stacks, sans-serif
-- **`--olt-font-mono`**: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace
 
 ### Brand Colors
 
@@ -69,7 +68,7 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 ### Spacing (4px base)
 
-- **`--olt-space-1` … `--olt-space-6`**: 4px, 8px, 12px, 16px, 20px, 24px
+- **`--olt-space-1` … `--olt-space-5`**: 4px, 8px, 12px, 16px, 20px
 
 ### Transitions
 
@@ -79,9 +78,6 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 ### Chart Tokens
 
-- **`--olt-chart-line`**: var(--olt-brand-navy)
-- **`--olt-chart-accent`**: var(--olt-brand-blue)
-- **`--olt-chart-grid`**: rgba(0, 0, 0, 0.08)
 - **`--olt-tooltip-bg`**: #111827
 - **`--olt-tooltip-text`**: #ffffff
 
@@ -110,25 +106,23 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 
 - **`.olt-header`** — Flex row, space-between, wrap; border-bottom.
 - **`.olt-header-left`** — Column for title + subtitle.
-- **`.olt-title-row`** — Row for title + mobile 24h badge.
-- **`.olt-header-right`** — CTA + desktop 24h badge.
+- **`.olt-title-row`** — Row for title + mobile range-change badge.
+- **`.olt-header-right`** — CTA + desktop range-change badge.
 - **`.olt-title`** — Event title (18px, bold). Links use brand navy.
 - **`.olt-subtitle`** — Event date/time (13px, muted).
 
-### 24h Change Badge
+### Range Change Badge
 
 - **`.olt-change`** — Badge container (inline-flex, padding, radius).
 - **`.olt-change--up`** — Green background (success).
 - **`.olt-change--down`** — Red background (danger).
 - **`.olt-change--mobile`** — Shown only on mobile (≤480px).
 - **`.olt-change--desktop`** — Shown only on desktop; hidden on mobile.
-- **`.olt-change-arrow`**, **`.olt-change-label`** — Inner pieces.
+- **`.olt-change-label`** — Range label (`24h`, `3d`, `All`) or `N/A`.
 
 ### Status Bar (stat selector + timeline)
 
 - **`.olt-status-bar`** — Flex row; left = stat selector, right = timeline toggle.
-- **`.olt-status-left`** — Contains "Live market stats" note and the stat-selector.
-- **`.olt-stats-note`** — Small muted label above the stat selector.
 - **Stat selector** — The stat bar doubles as the metric selector: same pill/toggle style as timeline, sized for price + label. Uses **`.olt-toggle-group--stat`** (3 columns), **`.olt-toggle-pill`**, and **`.olt-toggle--stat`** buttons. Each button shows **`.olt-toggle-stat-price`** and **`.olt-toggle-stat-label`** (MIN/AVG/MAX). Clicking a stat switches the chart metric; `data-active-index` and `aria-pressed` indicate the active metric.
 
 ### Toggle Controls
@@ -169,13 +163,6 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 - **`.olt-skeleton-chart`** — Chart placeholder height (300px).
 - **`.olt-error`** — Error message (danger bg/border, padding).
 - **`.olt-event-ended-notice`** — “This event has ended” (surface-2, muted).
-
-### Utilities
-
-- **`.olt-hidden`** — display: none !important
-- **`.olt-visually-hidden`** — Screen-reader-only clip
-
----
 
 ## Responsive Breakpoints
 
@@ -273,11 +260,21 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 ## Data Formatting (visual)
 
 - **Currency**: Use `$` + whole number or two decimals (e.g. `$125` or `$125.50`). Widget uses rounded whole dollars in stats/chart.
-- **24h change**: Show as percentage with sign (e.g. `+5.2%`, `-3.1%`). Green for down (good for buyers), red for up.
-- **24h change**: The badge shows the 24h change for the **currently selected metric** (MIN/AVG/MAX), using backend-provided `change_24h_min`, `change_24h_avg`, and `change_24h_max` from `get_current_prices`.
-- **24h change N/A**: When there is no valid 24h comparison for the selected metric, the badge shows **N/A**, never `0%`.
-- **Labels**: Uppercase for stat labels (MIN, AVG, MAX) and toggle text (3 DAY, All).
+- **Range change**: Show as percentage with sign (e.g. `+5.2%`, `-3.1%`). Green for down (good for buyers), red for up.
+- **Range change source**: Badge is computed in the frontend from the visible chart dataset for the selected metric/range (`24h`, `3day`, `alltime`), not from fixed backend 24h fields.
+- **Range change N/A**: If there are fewer than 2 valid points, baseline is `0`, or values are missing, show **N/A** (never force `0%`).
+- **Labels**: Uppercase for stat labels (MIN, AVG, MAX) and range toggle text (24 HR, 3 DAY, ALL). Badge label uses compact range text (`24h`, `3d`, `All`).
 - **Missing buckets (null values)**: For some timestamps there may be no eligible listings, so a metric can be `null`. Treat `null` as **missing data (a gap)**. Never coerce `null` to `0`—that can create impossible visuals (e.g. showing `MAX=$0` while `MIN=$507` for the same bucket).
+
+### Unified display model
+
+Chart, stat bar, and change badge all derive values from the same visible chart dataset. Shared validity helpers (`isValidMetricValue`, `getLastValidMetricValue`, `getRangeEndpoints`, `computeRangePercentChange`) live in `app/embed/src/utils/chartMetrics.js` and enforce one rule: a metric is valid iff `typeof v === 'number' && Number.isFinite(v)`.
+
+- **Stat bar** shows the last valid value per metric from the displayed series (not from a separate backend RPC snapshot).
+- **Badge** derives percent change from the first and last valid values in the visible series **for the currently selected metric** (min, avg, or max). Toggling the metric updates the badge.
+- **Chart** renders null buckets as gaps and uses the same validity helper for tooltip display and Y-axis domain.
+
+This ensures all three surfaces agree when data is sparse, stale, or missing.
 
 ---
 
@@ -292,8 +289,8 @@ Tokens are defined on **`:host`** (Shadow DOM root) in `tokens.css`. Naming: `--
 ## Accessibility
 
 - All interactive elements (buttons, links) are focusable. Use `focus-visible` outlines (brand blue).
-- Toggles use `aria-pressed`; 24h change badge can use `aria-label` for the value.
-- Color is not the only indicator for up/down: use arrows (↑/↓) and text.
+- Toggles use `aria-pressed`; range change badge uses range-specific `aria-label` text.
+- Color is not the only indicator for up/down: include signed percentages and explicit range labels.
 
 ---
 
