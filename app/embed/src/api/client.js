@@ -226,15 +226,6 @@ function isFiniteMetricValue(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function hasAnyFiniteMetric(point) {
-  if (!point || typeof point !== "object") return false;
-  return (
-    isFiniteMetricValue(point.min_price) ||
-    isFiniteMetricValue(point.avg_price) ||
-    isFiniteMetricValue(point.max_price)
-  );
-}
-
 function computeWorkingDayAggregate(hourlyData) {
   if (!Array.isArray(hourlyData) || hourlyData.length === 0) return null;
 
@@ -283,6 +274,16 @@ function computeWorkingDayAggregate(hourlyData) {
     maxOfMax = getLastValidMetric(hourlyData, "max_price");
   }
 
+  // Only surface a working aggregate when we have at least one finite metric
+  // sourced from the recent hourly window.
+  if (
+    !isFiniteMetricValue(minOfMin) &&
+    avgCount === 0 &&
+    !isFiniteMetricValue(maxOfMax)
+  ) {
+    return null;
+  }
+
   return {
     timestamp: todayUtc,
     min_price: minOfMin,
@@ -296,32 +297,14 @@ function mergeDailyWithWorkingDayAggregate(dailyData, workingPoint) {
   if (!workingPoint) return Array.isArray(dailyData) ? dailyData : [];
   if (!Array.isArray(dailyData) || dailyData.length === 0) return [workingPoint];
 
-  // If the working aggregate has no finite metric values, carry forward the most
-  // recent valid daily values so "today so far" still renders as a visible point.
-  let resolvedWorkingPoint = workingPoint;
-  if (!hasAnyFiniteMetric(resolvedWorkingPoint)) {
-    for (let i = dailyData.length - 1; i >= 0; i--) {
-      const prior = dailyData[i];
-      if (!hasAnyFiniteMetric(prior)) continue;
-      resolvedWorkingPoint = {
-        timestamp: workingPoint.timestamp,
-        min_price: isFiniteMetricValue(prior.min_price) ? prior.min_price : null,
-        avg_price: isFiniteMetricValue(prior.avg_price) ? prior.avg_price : null,
-        max_price: isFiniteMetricValue(prior.max_price) ? prior.max_price : null,
-        is_working_aggregate: true,
-      };
-      break;
-    }
-  }
-
-  const todayUtc = toUtcDayKey(resolvedWorkingPoint.timestamp);
+  const todayUtc = toUtcDayKey(workingPoint.timestamp);
   const merged = dailyData.map((p) =>
-    toUtcDayKey(p?.timestamp) === todayUtc ? resolvedWorkingPoint : p,
+    toUtcDayKey(p?.timestamp) === todayUtc ? workingPoint : p,
   );
 
   const hasToday = merged.some((p) => toUtcDayKey(p?.timestamp) === todayUtc);
   if (hasToday) return merged;
-  return [...merged, resolvedWorkingPoint];
+  return [...merged, workingPoint];
 }
 
 /**

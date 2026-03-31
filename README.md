@@ -121,12 +121,12 @@ For the **All** range, the widget primarily uses daily rollup data. To avoid the
 - Marks that point with `is_working_aggregate: true`
 - Replaces/appends today's daily point with this synthetic point
 
-If today's hourly rows exist but have no finite prices (e.g. listing gaps), the widget carries forward the most recent valid values:
+If today's hourly rows exist but have no finite prices (e.g. listing gaps), the widget attempts a carry-forward from recent hourly values:
 
 1. First from recent hourly data in the 24h window
-2. If still unavailable, from the latest valid daily point
+2. If no finite values are available in that recent hourly window, no working aggregate point is shown
 
-This keeps **All** logically day-based while still surfacing a visible "today so far" point. In the chart tooltip, synthetic points are labeled **Working Aggregate** for clarity.
+This keeps **All** logically day-based while only surfacing a "today so far" point when recent finite hourly data exists. In the chart tooltip, synthetic points are labeled **Working Aggregate** for clarity.
 
 ---
 
