@@ -1,5 +1,8 @@
 import { getEdgeFunctionAuthHeaders, supabase } from '../lib/supabaseClient.js'
 
+/** Keeps each Edge Function request small (URL + JSON body limits) for large “select all” batches. */
+const ADD_EVENTS_PROXY_BATCH_SIZE = 400
+
 export async function addSelectedEventsFromPreview({ selectedIds = [], previewRows = [], teEventsById = {} }) {
   if (!supabase) throw new Error('Supabase client is not configured.')
   const normalizedSelected = Array.from(
@@ -17,20 +20,37 @@ export async function addSelectedEventsFromPreview({ selectedIds = [], previewRo
   const previewById = new Map(
     (previewRows ?? []).map((row) => [Number.parseInt(String(row?.te_event_id ?? ''), 10), row]),
   )
-  const teEvents = normalizedSelected.map((id) => teEventsById?.[id] ?? previewById.get(id) ?? { te_event_id: id })
+
   const explicitAuthHeaders = await getEdgeFunctionAuthHeaders()
-  const { data, error } = await supabase.functions.invoke('add-events-proxy', {
-    body: {
-      selected_ids: normalizedSelected,
-      te_events: teEvents,
-    },
-    headers: explicitAuthHeaders,
-  })
-  if (error) throw new Error(error.message || 'Failed to insert selected events')
+
+  let addedCount = 0
+  let duplicateCount = 0
+  const addedIds = []
+  const duplicateIds = []
+
+  for (let offset = 0; offset < normalizedSelected.length; offset += ADD_EVENTS_PROXY_BATCH_SIZE) {
+    const batchIds = normalizedSelected.slice(offset, offset + ADD_EVENTS_PROXY_BATCH_SIZE)
+    const teEvents = batchIds.map(
+      (id) => teEventsById?.[id] ?? previewById.get(id) ?? { te_event_id: id },
+    )
+    const { data, error } = await supabase.functions.invoke('add-events-proxy', {
+      body: {
+        selected_ids: batchIds,
+        te_events: teEvents,
+      },
+      headers: explicitAuthHeaders,
+    })
+    if (error) throw new Error(error.message || 'Failed to insert selected events')
+    addedCount += Number.parseInt(String(data?.added_count ?? 0), 10) || 0
+    duplicateCount += Number.parseInt(String(data?.duplicate_count ?? 0), 10) || 0
+    if (Array.isArray(data?.added_ids)) addedIds.push(...data.added_ids)
+    if (Array.isArray(data?.duplicate_ids)) duplicateIds.push(...data.duplicate_ids)
+  }
+
   return {
-    addedCount: Number.parseInt(String(data?.added_count ?? 0), 10) || 0,
-    duplicateCount: Number.parseInt(String(data?.duplicate_count ?? 0), 10) || 0,
-    addedIds: Array.isArray(data?.added_ids) ? data.added_ids : [],
-    duplicateIds: Array.isArray(data?.duplicate_ids) ? data.duplicate_ids : [],
+    addedCount,
+    duplicateCount,
+    addedIds,
+    duplicateIds,
   }
 }

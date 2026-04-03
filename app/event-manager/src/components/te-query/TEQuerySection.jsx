@@ -6,6 +6,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addSelectedEventsFromPreview } from '../../api/addSelectedEvents.js'
 import { useViewportPageSize } from '../../hooks/useViewportPageSize.js'
 
+/** PostgREST `.in()` builds a long URL; chunk to avoid proxy / length limits on huge previews. */
+const EXISTING_IDS_IN_CHUNK = 200
+
 export function TEQuerySection() {
   const previewPageSize = useViewportPageSize()
   const [mode, setMode] = useState('single')
@@ -35,16 +38,17 @@ export function TEQuerySection() {
 
     let existingIds = new Set()
     if (supabase && eventIds.length > 0) {
-      const { data, error } = await supabase
-        .from('events')
-        .select('te_event_id')
-        .in('te_event_id', eventIds)
-      if (!error) {
-        existingIds = new Set(
-          (data ?? [])
-            .map((row) => Number.parseInt(String(row?.te_event_id ?? ''), 10))
-            .filter((n) => Number.isFinite(n) && n > 0),
-        )
+      for (let i = 0; i < eventIds.length; i += EXISTING_IDS_IN_CHUNK) {
+        const idChunk = eventIds.slice(i, i + EXISTING_IDS_IN_CHUNK)
+        const { data, error } = await supabase
+          .from('events')
+          .select('te_event_id')
+          .in('te_event_id', idChunk)
+        if (error) break
+        for (const row of data ?? []) {
+          const id = Number.parseInt(String(row?.te_event_id ?? ''), 10)
+          if (Number.isFinite(id) && id > 0) existingIds.add(id)
+        }
       }
     }
 
